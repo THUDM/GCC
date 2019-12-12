@@ -37,6 +37,7 @@ class GraphDataset(torch.utils.data.Dataset):
         for name in ["computers", "photo"]:
             g = AmazonCoBuy(name)[0]
             graphs.append(g)
+        # more graphs are comming ...
 
         self.graph = dgl.batch(graphs, node_attrs=None, edge_attrs=None)
         self.graph.readonly()
