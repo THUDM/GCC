@@ -7,7 +7,10 @@
 
 import dgl
 import torch
+import torch.nn.functional as F
 from dgl.data import AmazonCoBuy, Coauthor
+import scipy.sparse as sparse
+import numpy as np
 
 class GraphBatcher:
     def __init__(self, graph_q, graph_k):
@@ -22,8 +25,11 @@ def batcher():
     return batcher_dev
 
 class GraphDataset(torch.utils.data.Dataset):
-    def __init__(self, rw_hops=128):
+    def __init__(self, rw_hops=2048, subgraph_size=128, restart_prob=0.6, hidden_size=64, file=None):
         self.rw_hops = rw_hops
+        self.subgraph_size = subgraph_size
+        self.restart_prob = restart_prob
+        self.hidden_size = hidden_size
         graphs = []
         for name in ["cs", "physics"]:
             g = Coauthor(name)[0]
@@ -33,27 +39,48 @@ class GraphDataset(torch.utils.data.Dataset):
             graphs.append(g)
 
         self.graph = dgl.batch(graphs, node_attrs=None, edge_attrs=None)
+        self.graph.readonly()
+
+    def graph_features(self, g):
+        n = g.number_of_nodes()
+        adj = g.adjacency_matrix_scipy(return_edge_ids=False).astype(float)
+        norm = sparse.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5, dtype=float)
+        laplacian = norm * adj * norm
+
+        u, s, _ = sparse.linalg.svds(laplacian, k=min(n-1, self.hidden_size), which='LM', return_singular_vectors='u')
+        x = u * sparse.diags(np.sqrt(s))
+        x = torch.from_numpy(x)
+        if n - 1 < self.hidden_size:
+            x = F.pad(x, (0, self.hidden_size-n+1), 'constant', 0)
+        g.ndata['x'] = x
+        return g
 
     def __len__(self):
         return self.graph.number_of_nodes()
 
     def __getitem__(self, idx):
-        traces = dgl.contrib.sampling.random_walk(
-                self.graph,
-                seeds=[idx],
-                num_traces=2,
-                num_hops=self.rw_hops).view(2, -1)
-        graph_q, graph_k = self.graph.subgraphs(traces)
+        traces = dgl.contrib.sampling.deepinf_random_walk_with_restart(
+            self.graph,
+            seeds=[idx],
+            restart_prob=self.restart_prob,
+            num_traces=2,
+            num_hops=self.rw_hops,
+            num_unique=self.subgraph_size)[0]
+
+        graph_q, graph_k = self.graph.subgraphs(traces) # equivalent to x_q and x_k in moco paper
+        graph_q = self.graph_features(graph_q)
+        graph_k = self.graph_features(graph_k)
         return graph_q, graph_k
 
 
 if __name__ == '__main__':
-	graph_dataset = GraphDataset()
-	graph_loader = torch.utils.data.DataLoader(dataset=graph_dataset,
-							batch_size=20,
-							collate_fn=batcher(),
-							shuffle=False,
-							num_workers=4)
-
-	for step, batch in enumerate(graph_loader):
-		print(batch.graph_q.batch_size)
+    graph_dataset = GraphDataset()
+    graph_loader = torch.utils.data.DataLoader(
+            dataset=graph_dataset,
+            batch_size=20,
+            collate_fn=batcher(),
+            shuffle=False,
+            num_workers=4)
+    for step, batch in enumerate(graph_loader):
+        print(batch.graph_q.batch_size)
+        break
