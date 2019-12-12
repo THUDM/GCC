@@ -41,7 +41,7 @@ class GraphDataset(torch.utils.data.Dataset):
         self.graph = dgl.batch(graphs, node_attrs=None, edge_attrs=None)
         self.graph.readonly()
 
-    def graph_features(self, g):
+    def add_graph_features(self, g):
         n = g.number_of_nodes()
         adj = g.adjacency_matrix_scipy(return_edge_ids=False).astype(float)
         norm = sparse.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5, dtype=float)
@@ -68,8 +68,8 @@ class GraphDataset(torch.utils.data.Dataset):
             num_unique=self.subgraph_size)[0]
 
         graph_q, graph_k = self.graph.subgraphs(traces) # equivalent to x_q and x_k in moco paper
-        graph_q = self.graph_features(graph_q)
-        graph_k = self.graph_features(graph_k)
+        graph_q = self.add_graph_features(graph_q)
+        graph_k = self.add_graph_features(graph_k)
         return graph_q, graph_k
 
 
