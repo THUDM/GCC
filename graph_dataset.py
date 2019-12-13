@@ -25,7 +25,7 @@ def batcher():
     return batcher_dev
 
 class GraphDataset(torch.utils.data.Dataset):
-    def __init__(self, rw_hops=2048, subgraph_size=128, restart_prob=0.6, hidden_size=64, file=None):
+    def __init__(self, rw_hops=2048, subgraph_size=128, restart_prob=0.6, hidden_size=64):
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
