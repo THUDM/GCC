@@ -9,6 +9,7 @@ import os
 import torch
 import dgl.model_zoo.chem as zoo
 import time
+import argparse
 from util import adjust_learning_rate, AverageMeter
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion
@@ -21,6 +22,97 @@ try:
     from apex import amp, optimizers
 except ImportError:
     pass
+
+def parse_option():
+
+
+    parser = argparse.ArgumentParser('argument for training')
+
+    parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
+    parser.add_argument('--tb_freq', type=int, default=500, help='tb frequency')
+    parser.add_argument('--save_freq', type=int, default=10, help='save frequency')
+    parser.add_argument('--batch_size', type=int, default=128, help='batch_size')
+    parser.add_argument('--num_workers', type=int, default=18, help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=240, help='number of training epochs')
+
+    # optimization
+    parser.add_argument('--learning_rate', type=float, default=0.03, help='learning rate')
+    parser.add_argument('--lr_decay_epochs', type=str, default='120,160,200', help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
+    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam')
+    parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
+    parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
+
+
+    # path
+
+    parser.add_argument('--data_folder', default='', type=str, metavar='PATH',
+                        help='path to data (default: none)')
+    parser.add_argument('--model_path', default='', type=str, metavar='PATH',
+                        help='path to save models (default: none)')
+    parser.add_argument('--tb_path', default='', type=str, metavar='PATH',
+                        help='path to tensorboard (default: none)')
+
+    # resume
+    parser.add_argument('--resume', default='', type=str, metavar='PATH',
+                        help='path to latest checkpoint (default: none)')
+
+    # augmentation setting
+    parser.add_argument('--aug', type=str, default='1st', choices=['1st', '2nd', 'all'])
+
+    # warm up
+    parser.add_argument('--warm', action='store_true', help='add warm-up setting')
+    parser.add_argument('--amp', action='store_true', help='using mixed precision')
+    parser.add_argument('--opt_level', type=str, default='O2', choices=['O1', 'O2'])
+
+    # model definition
+    parser.add_argument('--model', type=str, default='gcn', choices=['gcn', 'gat'])
+    # other possible choices: ggnn, mpnn, graphsage ...
+
+    # loss function
+    parser.add_argument('--softmax', action='store_true', help='using softmax contrastive loss rather than NCE')
+    parser.add_argument('--nce_k', type=int, default=16384)
+    parser.add_argument('--nce_t', type=float, default=0.07)
+    parser.add_argument('--nce_m', type=float, default=0.5)
+
+    # memory setting
+    parser.add_argument('--alpha', type=float, default=0.999, help='exponential moving average weight')
+
+    # GPU setting
+    parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
+
+    opt = parser.parse_args()
+
+    iterations = opt.lr_decay_epochs.split(',')
+    opt.lr_decay_epochs = list([])
+    for it in iterations:
+        opt.lr_decay_epochs.append(int(it))
+
+    opt.method = 'softmax' if opt.softmax else 'nce'
+    prefix = 'MoCo{}'.format(opt.alpha) if opt.moco else 'InsDis'
+
+    opt.model_name = '{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}'.format(prefix, opt.method, opt.nce_k, opt.model,
+                                                                        opt.learning_rate, opt.weight_decay,
+                                                                        opt.batch_size)
+
+    if opt.warm:
+        opt.model_name = '{}_warm'.format(opt.model_name)
+    if opt.amp:
+        opt.model_name = '{}_amp_{}'.format(opt.model_name, opt.opt_level)
+
+    opt.model_name = '{}_aug_{}'.format(opt.model_name, opt.aug)
+
+    opt.model_folder = os.path.join(opt.model_path, opt.model_name)
+    if not os.path.isdir(opt.model_folder):
+        os.makedirs(opt.model_folder)
+
+    opt.tb_folder = os.path.join(opt.tb_path, opt.model_name)
+    if not os.path.isdir(opt.tb_folder):
+        os.makedirs(opt.tb_folder)
+
+    return opt
+
 
 def moment_update(model, model_ema, m):
     """ model_ema = m * model_ema + (1 - m) model """
