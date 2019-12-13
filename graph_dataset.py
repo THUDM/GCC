@@ -40,6 +40,7 @@ class GraphDataset(torch.utils.data.Dataset):
         # more graphs are comming ...
 
         self.graph = dgl.batch(graphs, node_attrs=None, edge_attrs=None)
+        self.graph.remove_nodes((self.graph.in_degrees() == 0).nonzero().squeeze())
         self.graph.readonly()
 
     def add_graph_features(self, g):
@@ -64,7 +65,7 @@ class GraphDataset(torch.utils.data.Dataset):
         x = torch.from_numpy(x)
         if n - 1 < self.hidden_size:
             x = F.pad(x, (0, self.hidden_size-n+1), 'constant', 0)
-        g.ndata['x'] = x
+        g.ndata['x'] = x.float()
 
         # TODO netmf can also be part of vertex features
         return g

@@ -5,18 +5,19 @@
 # Create Time: 2019/12/13 16:44
 # TODO:
 
-import os
-import torch
-import dgl.model_zoo.chem as zoo
-import time
 import argparse
-from util import adjust_learning_rate, AverageMeter
-from NCE.NCEAverage import MemoryMoCo
-from NCE.NCECriterion import NCECriterion
-from NCE.NCECriterion import NCESoftmaxLoss
-from graph_dataset import GraphDataset, batcher
+import os
+import time
 
 import tensorboard_logger as tb_logger
+import torch
+
+import dgl.model_zoo.chem as zoo
+from graph_dataset import GraphDataset, batcher
+from models.gcn import UnsupervisedGCN
+from NCE.NCEAverage import MemoryMoCo
+from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
+from util import AverageMeter, adjust_learning_rate
 
 try:
     from apex import amp, optimizers
@@ -44,16 +45,6 @@ def parse_option():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 
-
-    # path
-
-    parser.add_argument('--data_folder', default='', type=str, metavar='PATH',
-                        help='path to data (default: none)')
-    parser.add_argument('--model_path', default='', type=str, metavar='PATH',
-                        help='path to save models (default: none)')
-    parser.add_argument('--tb_path', default='', type=str, metavar='PATH',
-                        help='path to tensorboard (default: none)')
-
     # resume
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
@@ -76,7 +67,20 @@ def parse_option():
     parser.add_argument('--nce_t', type=float, default=0.07)
     parser.add_argument('--nce_m', type=float, default=0.5)
 
+
+    parser.add_argument('--rw-hops', type=int, default=2048)
+    parser.add_argument('--subgraph-size', type=int, default=128)
+    parser.add_argument('--restart-prob', type=int, default=0.6)
+    parser.add_argument('--hidden-size', type=int, default=64)
+    parser.add_argument('--num-layer', type=int, default=2)
+
+    # specify folder
+    parser.add_argument('--model_path', type=str, default=None, help='path to save model')
+    parser.add_argument('--tb_path', type=str, default=None, help='path to tensorboard')
+
     # memory setting
+    parser.add_argument('--moco', action='store_true', help='using MoCo (otherwise Instance Discrimination)')
+
     parser.add_argument('--alpha', type=float, default=0.999, help='exponential moving average weight')
 
     # GPU setting
@@ -90,7 +94,7 @@ def parse_option():
         opt.lr_decay_epochs.append(int(it))
 
     opt.method = 'softmax' if opt.softmax else 'nce'
-    prefix = 'MoCo{}'.format(opt.alpha) if opt.moco else 'InsDis'
+    prefix = 'Grpah_MoCo{}'.format(opt.alpha)
 
     opt.model_name = '{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}'.format(prefix, opt.method, opt.nce_k, opt.model,
                                                                         opt.learning_rate, opt.weight_decay,
@@ -120,7 +124,7 @@ def moment_update(model, model_ema, m):
         p2.data.mul_(m).add_(1-m, p1.detach().data)
 
 
-def train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optimizer, opt):
+def train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optimizer, logger, opt):
     """
     one epoch training for moco
     """
@@ -143,13 +147,19 @@ def train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optim
     for idx, batch in enumerate(train_loader):
         data_time.update(time.time() - end)
         graph_q, graph_k = batch.graph_q, batch.graph_q
+        graph_q_feat = graph_q.ndata['x'].cuda(opt.gpu)
+        graph_k_feat = graph_k.ndata['x'].cuda(opt.gpu)
         bsz = graph_q.batch_size
 
         # ===================forward=====================
 
-        feat_q = model(graph_q)
-        with torch.no_grad():
-            feat_k = model_ema(graph_k)
+        feat_q = model(graph_q, graph_q_feat)
+        if opt.moco:
+            with torch.no_grad():
+                feat_k = model_ema(graph_k, graph_k_feat)
+        else:
+            # end-to-end by back-propagation (the two encoders can be different).
+            feat_k = model_ema(graph_k, graph_k_feat)
 
         out = contrast(feat_q, feat_k)
 
@@ -169,7 +179,8 @@ def train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optim
         loss_meter.update(loss.item(), bsz)
         prob_meter.update(prob.item(), bsz)
 
-        moment_update(model, model_ema, opt.alpha)
+        if opt.moco:
+            moment_update(model, model_ema, opt.alpha)
 
         torch.cuda.synchronize()
         batch_time.update(time.time() - end)
@@ -184,32 +195,33 @@ def train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optim
                   'prob {prob.val:.3f} ({prob.avg:.3f})'.format(
                    epoch, idx + 1, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=loss_meter, prob=prob_meter))
-            print(out.shape)
 
-    return loss_meter.avg, prob_meter.avg
+        # tensorboard logger
+        if (idx + 1) % opt.tb_freq == 0:
+            global_step = epoch * len(train_loader) + idx
+            logger.log_value('moco_loss', loss_meter.avg, global_step)
+            logger.log_value('moco_prob', prob_meter.avg, global_step)
+            logger.log_value('learning_rate', optimizer.param_groups[0]['lr'], global_step)
+            loss_meter.reset()
+            prob_meter.reset()
 
 
 def main():
 
     args = parse_option()
 
-    if args.gpu is not None:
-        print("Use GPU: {} for training".format(args.gpu))
-
-    # set the data loader
-    data_folder = os.path.join(args.data_folder, 'train')
-
+    assert args.gpu is not None and torch.cuda.is_available()
+    print("Use GPU: {} for training".format(args.gpu))
 
     train_dataset = GraphDataset(
-            random_walk_hops=args.random_walk_hops,
+            rw_hops=args.rw_hops,
             subgraph_size=args.subgraph_size,
             restart_prob=args.restart_prob,
             hidden_size=args.hidden_size
             )
-    print(len(train_dataset))
     train_loader = torch.utils.data.DataLoader(
             dataset=train_dataset,
-            batch_size=20,
+            batch_size=args.batch_size,
             collate_fn=batcher(),
             shuffle=True,
             num_workers=args.num_workers)
@@ -217,9 +229,10 @@ def main():
     # create model and optimizer
     n_data = len(train_dataset)
 
+    assert args.model == 'gcn'
     if args.model == 'gcn':
-        model = zoo.GCNClassifier()
-        model_ema = zoo.GCNClassifier()
+        model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer)
+        model_ema = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer)
     elif args.model == 'gat':
         model = zoo.GATClassifier()
         model_ema = zoo.GATClassifier()
@@ -227,16 +240,18 @@ def main():
         raise NotImplementedError('model not supported {}'.format(args.model))
 
     # copy weights from `model' to `model_ema'
-    moment_update(model, model_ema, 0)
+    if args.moco:
+        moment_update(model, model_ema, 0)
 
     # set the contrast memory and criterion
-    contrast = MemoryMoCo(128, n_data, args.nce_k, args.nce_t, args.softmax).cuda(args.gpu)
+    contrast = MemoryMoCo(args.hidden_size, n_data, args.nce_k, args.nce_t, args.softmax).cuda(args.gpu)
 
+    assert args.softmax
     criterion = NCESoftmaxLoss() if args.softmax else NCECriterion(n_data)
     criterion = criterion.cuda(args.gpu)
 
-    model = model.cuda()
-    model_ema = model_ema.cuda()
+    model = model.cuda(args.gpu)
+    model_ema = model_ema.cuda(args.gpu)
 
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=args.learning_rate,
@@ -279,14 +294,9 @@ def main():
         print("==> training...")
 
         time1 = time.time()
-        loss, prob = train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optimizer, args)
+        train_moco(epoch, train_loader, model, model_ema, contrast, criterion, optimizer, logger, args)
         time2 = time.time()
         print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
-
-        # tensorboard logger
-        logger.log_value('ins_loss', loss, epoch)
-        logger.log_value('ins_prob', prob, epoch)
-        logger.log_value('learning_rate', optimizer.param_groups[0]['lr'], epoch)
 
         # save model
         if epoch % args.save_freq == 0:
