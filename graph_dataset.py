@@ -43,17 +43,30 @@ class GraphDataset(torch.utils.data.Dataset):
         self.graph.readonly()
 
     def add_graph_features(self, g):
+        # We use sigular vectors of normalized graph laplacian as vertex features.
+        # It could be viewed as a generalization of positional embedding in the
+        # attention is all you need paper.
+        # Recall that the eignvectors of normalized laplacian of a line graph are cos/sin functions.
+        # See section 2.4 of http://www.cs.yale.edu/homes/spielman/561/2009/lect02-09.pdf
         n = g.number_of_nodes()
         adj = g.adjacency_matrix_scipy(return_edge_ids=False).astype(float)
-        norm = sparse.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5, dtype=float)
+        norm = sparse.diags(
+                dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5,
+                dtype=float)
         laplacian = norm * adj * norm
 
-        u, s, _ = sparse.linalg.svds(laplacian, k=min(n-1, self.hidden_size), which='LM', return_singular_vectors='u')
+        u, s, _ = sparse.linalg.svds(
+                laplacian,
+                k=min(n-1, self.hidden_size),
+                which='LM',
+                return_singular_vectors='u')
         x = u * sparse.diags(np.sqrt(s))
         x = torch.from_numpy(x)
         if n - 1 < self.hidden_size:
             x = F.pad(x, (0, self.hidden_size-n+1), 'constant', 0)
         g.ndata['x'] = x
+
+        # TODO netmf can also be part of vertex features
         return g
 
     def __len__(self):
