@@ -24,20 +24,20 @@ try:
 except ImportError:
     pass
 
-
 def parse_option():
+
 
     parser = argparse.ArgumentParser('argument for training')
 
     parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
-    parser.add_argument('--tb_freq', type=int, default=50, help='tb frequency')
+    parser.add_argument('--tb_freq', type=int, default=500, help='tb frequency')
     parser.add_argument('--save_freq', type=int, default=10, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=128, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=18, help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
+    parser.add_argument('--epochs', type=int, default=240, help='number of training epochs')
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.03, help='learning rate')
     parser.add_argument('--lr_decay_epochs', type=str, default='120,160,200', help='where to decay lr, can be a list')
     parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam')
@@ -45,15 +45,12 @@ def parse_option():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 
-    # crop
-    parser.add_argument('--crop', type=float, default=0.2, help='minimum crop')
-
     # resume
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
 
     # augmentation setting
-    parser.add_argument('--aug', type=str, default='CJ', choices=['NULL', 'CJ'])
+    parser.add_argument('--aug', type=str, default='1st', choices=['1st', '2nd', 'all'])
 
     # warm up
     parser.add_argument('--warm', action='store_true', help='add warm-up setting')
@@ -62,6 +59,7 @@ def parse_option():
 
     # model definition
     parser.add_argument('--model', type=str, default='gcn', choices=['gcn', 'gat'])
+    # other possible choices: ggnn, mpnn, graphsage ...
 
     # loss function
     parser.add_argument('--softmax', action='store_true', help='using softmax contrastive loss rather than NCE')
@@ -69,7 +67,7 @@ def parse_option():
     parser.add_argument('--nce_t', type=float, default=0.07)
     parser.add_argument('--nce_m', type=float, default=0.5)
 
-    # random walk
+
     parser.add_argument('--rw-hops', type=int, default=2048)
     parser.add_argument('--subgraph-size', type=int, default=128)
     parser.add_argument('--restart-prob', type=int, default=0.6)
@@ -82,6 +80,7 @@ def parse_option():
 
     # memory setting
     parser.add_argument('--moco', action='store_true', help='using MoCo (otherwise Instance Discrimination)')
+
     parser.add_argument('--alpha', type=float, default=0.999, help='exponential moving average weight')
 
     # GPU setting
@@ -97,9 +96,9 @@ def parse_option():
     opt.method = 'softmax' if opt.softmax else 'nce'
     prefix = 'Grpah_MoCo{}'.format(opt.alpha)
 
-    opt.model_name = '{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_crop_{}_moco{}'.format(prefix, opt.method, opt.nce_k, opt.model,
+    opt.model_name = '{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}'.format(prefix, opt.method, opt.nce_k, opt.model,
                                                                         opt.learning_rate, opt.weight_decay,
-                                                                        opt.batch_size, opt.crop, opt.moco)
+                                                                        opt.batch_size)
 
     if opt.warm:
         opt.model_name = '{}_warm'.format(opt.model_name)
