@@ -98,7 +98,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}".format(
+    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}".format(
         prefix,
         opt.method,
         opt.nce_k,
@@ -108,7 +108,10 @@ def option_update(opt):
         opt.batch_size,
         opt.moco,
         opt.nce_t,
-        opt.readout
+        opt.readout,
+        opt.subgraph_size,
+        opt.rw_hops,
+        opt.restart_prob
     )
 
     if opt.amp:
