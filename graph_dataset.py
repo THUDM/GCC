@@ -11,17 +11,22 @@ import torch.nn.functional as F
 from dgl.data import AmazonCoBuy, Coauthor
 import scipy.sparse as sparse
 import numpy as np
+from itertools import accumulate
 
 class GraphBatcher:
-    def __init__(self, graph_q, graph_k):
+    def __init__(self, graph_q, graph_k, graph_q_roots, graph_k_roots):
         self.graph_q = graph_q
         self.graph_k = graph_k
+        self.graph_q_roots = graph_q_roots
+        self.graph_k_roots = graph_k_roots
 
 def batcher():
     def batcher_dev(batch):
         graph_q, graph_k = zip(*batch)
+        graph_q_roots = list(accumulate([0] + [len(graph) for graph in graph_q[:-1]]))
+        graph_k_roots = list(accumulate([0] + [len(graph) for graph in graph_k[:-1]]))
         graph_q, graph_k = dgl.batch(graph_q), dgl.batch(graph_k)
-        return GraphBatcher(graph_q, graph_k)
+        return GraphBatcher(graph_q, graph_k, graph_q_roots, graph_k_roots)
     return batcher_dev
 
 class GraphDataset(torch.utils.data.Dataset):
@@ -81,6 +86,7 @@ class GraphDataset(torch.utils.data.Dataset):
             num_traces=2,
             num_hops=self.rw_hops,
             num_unique=self.subgraph_size)[0]
+        assert traces[0][0].item() == idx, traces[1][0].item() == idx
 
         graph_q, graph_k = self.graph.subgraphs(traces) # equivalent to x_q and x_k in moco paper
         graph_q = self.add_graph_features(graph_q)
@@ -97,5 +103,7 @@ if __name__ == '__main__':
             shuffle=False,
             num_workers=4)
     for step, batch in enumerate(graph_loader):
+        print(batch.graph_q)
+        print(batch.graph_q.ndata['x'].shape)
         print(batch.graph_q.batch_size)
         break

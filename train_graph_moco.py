@@ -34,7 +34,7 @@ def parse_option():
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
     parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
     parser.add_argument("--num_workers", type=int, default=24, help="num of workers to use")
-    parser.add_argument("--epochs", type=int, default=300, help="number of training epochs")
+    parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
 
     # optimization
     parser.add_argument("--learning_rate", type=float, default=0.005, help="learning rate")
@@ -56,19 +56,20 @@ def parse_option():
 
     # model definition
     parser.add_argument("--model", type=str, default="gcn", choices=["gcn", "gat"])
+    parser.add_argument("--num-layer", type=int, default=2)
+    parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
     # other possible choices: ggnn, mpnn, graphsage ...
 
     # loss function
     parser.add_argument("--softmax", action="store_true", help="using softmax contrastive loss rather than NCE")
     parser.add_argument("--nce_k", type=int, default=16384)
-    parser.add_argument("--nce_t", type=float, default=10)
+    parser.add_argument("--nce_t", type=float, default=100)
 
     # random walk
     parser.add_argument("--rw-hops", type=int, default=2048)
-    parser.add_argument("--subgraph-size", type=int, default=64)
-    parser.add_argument("--restart-prob", type=int, default=0.6)
+    parser.add_argument("--subgraph-size", type=int, default=128)
+    parser.add_argument("--restart-prob", type=float, default=0.6)
     parser.add_argument("--hidden-size", type=int, default=64)
-    parser.add_argument("--num-layer", type=int, default=2)
 
     # specify folder
     parser.add_argument("--model_path", type=str, default=None, help="path to save model")
@@ -97,7 +98,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}".format(
+    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}".format(
         prefix,
         opt.method,
         opt.nce_k,
@@ -107,6 +108,7 @@ def option_update(opt):
         opt.batch_size,
         opt.moco,
         opt.nce_t,
+        opt.readout
     )
 
     if opt.amp:
@@ -156,7 +158,7 @@ def train_moco(
     end = time.time()
     for idx, batch in enumerate(train_loader):
         data_time.update(time.time() - end)
-        graph_q, graph_k = batch.graph_q, batch.graph_q
+        graph_q, graph_k = batch.graph_q, batch.graph_k
         graph_q_feat = graph_q.ndata["x"].cuda(opt.gpu)
         graph_k_feat = graph_k.ndata["x"].cuda(opt.gpu)
         bsz = graph_q.batch_size
@@ -170,6 +172,12 @@ def train_moco(
         else:
             # end-to-end by back-propagation (the two encoders can be different).
             feat_k = model_ema(graph_k, graph_k_feat)
+
+        if opt.readout == "root":
+            feat_q = feat_q[batch.graph_q_roots]
+            feat_k = feat_k[batch.graph_k_roots]
+
+        assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
 
         out = contrast(feat_q, feat_k)
 
@@ -254,9 +262,9 @@ def main(args):
 
     assert args.model == "gcn"
     if args.model == "gcn":
-        model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer)
+        model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout)
         model_ema = UnsupervisedGCN(
-            hidden_size=args.hidden_size, num_layer=args.num_layer
+            hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
         )
     elif args.model == "gat":
         model = zoo.GATClassifier()
