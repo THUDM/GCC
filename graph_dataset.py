@@ -35,6 +35,7 @@ class GraphDataset(torch.utils.data.Dataset):
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
         self.hidden_size = hidden_size
+        assert(hidden_size > 1)
         graphs = []
         for name in ["cs", "physics"]:
             g = Coauthor(name)[0]
@@ -61,16 +62,18 @@ class GraphDataset(torch.utils.data.Dataset):
                 dtype=float)
         laplacian = norm * adj * norm
 
+        k=min(n-1, self.hidden_size-1)
         u, s, _ = sparse.linalg.svds(
                 laplacian,
-                k=min(n-1, self.hidden_size),
+                k=k,
                 which='LM',
                 return_singular_vectors='u')
         x = u * sparse.diags(np.sqrt(s))
         x = torch.from_numpy(x)
-        if n - 1 < self.hidden_size:
-            x = F.pad(x, (0, self.hidden_size-n+1), 'constant', 0)
+
+        x = F.pad(x, (0, self.hidden_size-k), 'constant', 0)
         g.ndata['x'] = x.float()
+        g.ndata['x'][0, -1] = 1.0
 
         # TODO netmf can also be part of vertex features
         return g
