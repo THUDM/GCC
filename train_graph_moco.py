@@ -15,6 +15,7 @@ import torch
 import dgl.model_zoo.chem as zoo
 from graph_dataset import GraphDataset, batcher
 from models.gcn import UnsupervisedGCN
+from models.gat import UnsupervisedGAT
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import AverageMeter, adjust_learning_rate
@@ -263,15 +264,20 @@ def main(args):
     # create model and optimizer
     n_data = len(train_dataset)
 
-    assert args.model == "gcn"
     if args.model == "gcn":
-        model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout)
+        model = UnsupervisedGCN(
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
+                )
         model_ema = UnsupervisedGCN(
-            hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
-        )
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
+                )
     elif args.model == "gat":
-        model = zoo.GATClassifier()
-        model_ema = zoo.GATClassifier()
+        model = UnsupervisedGAT(
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
+                )
+        model_ema = UnsupervisedGAT(
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
+                )
     else:
         raise NotImplementedError("model not supported {}".format(args.model))
 
