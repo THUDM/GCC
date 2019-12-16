@@ -20,7 +20,12 @@ class UnsupervisedGCN(nn.Module):
         self.layers = nn.ModuleList(
             [
                 GCNLayer(
-                    hidden_size, hidden_size, F.relu if i + 1 < num_layer else nn.Sequential()
+                    in_feats=hidden_size,
+                    out_feats=hidden_size,
+                    activation=F.relu if i + 1 < num_layer else None,
+                    residual=False,
+                    batchnorm=False,
+                    dropout=0.0
                 )
                 for i in range(num_layer)
             ]
@@ -36,9 +41,9 @@ class UnsupervisedGCN(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, g, feature):
+    def forward(self, g, feats):
         for layer in self.layers:
-            feats = layer(g, feature)
+            feats = layer(g, feats)
         feats = self.readout(g, feats)
         if isinstance(self.readout, Set2Set):
             feats = self.linear(feats)
