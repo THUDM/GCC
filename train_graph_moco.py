@@ -12,7 +12,6 @@ import time
 import tensorboard_logger as tb_logger
 import torch
 
-import dgl.model_zoo.chem as zoo
 from graph_dataset import GraphDataset, batcher
 from models.gcn import UnsupervisedGCN
 from models.gat import UnsupervisedGAT
@@ -38,10 +37,11 @@ def parse_option():
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
 
     # optimization
+    parser.add_argument("--optimizer", type=str, default='sgd', choices=['sgd', 'adam', 'adagrad'], help="optimizer")
     parser.add_argument("--learning_rate", type=float, default=0.005, help="learning rate")
     parser.add_argument("--lr_decay_epochs", type=str, default="120,160,200", help="where to decay lr, can be a list")
-    parser.add_argument("--lr_decay_rate", type=float, default=0.1, help="decay rate for learning rate")
-    parser.add_argument("--beta1", type=float, default=0.5, help="beta1 for adam")
+    parser.add_argument("--lr_decay_rate", type=float, default=0.0, help="decay rate for learning rate")
+    parser.add_argument("--beta1", type=float, default=0.9, help="beta1 for adam")
     parser.add_argument("--beta2", type=float, default=0.999, help="beta2 for Adam")
     parser.add_argument("--weight_decay", type=float, default=1e-5, help="weight decay")
     parser.add_argument("--momentum", type=float, default=0.9, help="momentum")
@@ -99,7 +99,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}".format(
+    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}_optimizer_{}".format(
         prefix,
         opt.method,
         opt.nce_k,
@@ -112,7 +112,8 @@ def option_update(opt):
         opt.readout,
         opt.subgraph_size,
         opt.rw_hops,
-        opt.restart_prob
+        opt.restart_prob,
+        opt.optimizer
     )
 
     if opt.amp:
@@ -297,12 +298,29 @@ def main(args):
     model = model.cuda(args.gpu)
     model_ema = model_ema.cuda(args.gpu)
 
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=args.learning_rate,
-        momentum=args.momentum,
-        weight_decay=args.weight_decay,
-    )
+    if args.optimizer == 'sgd':
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=args.learning_rate,
+            momentum=args.momentum,
+            weight_decay=args.weight_decay,
+        )
+    elif args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=args.learning_rate,
+            betas=(args.beta1, args.beta2),
+            weight_decay=args.weight_decay
+        )
+    elif args.optimizer == 'adagrad':
+        optimizer = torch.optim.Adagrad(
+            model.parameters(),
+            lr=args.learning_rate,
+            lr_decay=args.lr_decay_rate,
+            weight_decay=args.weight_decay
+        )
+    else:
+        raise NotImplementedError
 
     # set mixed precision
     if args.amp:
