@@ -59,6 +59,7 @@ def parse_option():
     parser.add_argument("--model", type=str, default="gcn", choices=["gcn", "gat"])
     parser.add_argument("--num-layer", type=int, default=2)
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
+    parser.add_argument("--layernorm", action="store_true", help="apply layernorm on output feats")
     # other possible choices: ggnn, mpnn, graphsage ...
 
     # loss function
@@ -99,7 +100,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}_optimizer_{}".format(
+    opt.model_name = "{}_{}_{}_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}".format(
         prefix,
         opt.method,
         opt.nce_k,
@@ -113,7 +114,8 @@ def option_update(opt):
         opt.subgraph_size,
         opt.rw_hops,
         opt.restart_prob,
-        opt.optimizer
+        opt.optimizer,
+        opt.layernorm
     )
 
     if opt.amp:
@@ -266,12 +268,10 @@ def main(args):
     n_data = len(train_dataset)
 
     if args.model == "gcn":
-        model = UnsupervisedGCN(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
-                )
+        model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm)
         model_ema = UnsupervisedGCN(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
-                )
+            hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm
+        )
     elif args.model == "gat":
         model = UnsupervisedGAT(
                 hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout

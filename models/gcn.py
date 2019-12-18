@@ -15,7 +15,9 @@ from dgl.nn.pytorch import AvgPooling, Set2Set
 
 
 class UnsupervisedGCN(nn.Module):
-    def __init__(self, hidden_size=64, num_layer=2, readout='avg'):
+    def __init__(
+        self, hidden_size=64, num_layer=2, readout="avg", layernorm: bool = False
+    ):
         super(UnsupervisedGCN, self).__init__()
         self.layers = nn.ModuleList(
             [
@@ -40,6 +42,10 @@ class UnsupervisedGCN(nn.Module):
             self.readout = lambda _, x: x
         else:
             raise NotImplementedError
+        self.layernorm = layernorm
+        if layernorm:
+            self.ln = nn.LayerNorm(hidden_size, elementwise_affine=False)
+            # self.ln = nn.BatchNorm1d(hidden_size, affine=False)
 
     def forward(self, g, feats):
         for layer in self.layers:
@@ -47,6 +53,8 @@ class UnsupervisedGCN(nn.Module):
         feats = self.readout(g, feats)
         if isinstance(self.readout, Set2Set):
             feats = self.linear(feats)
+        if self.layernorm:
+            feats = self.ln(feats)
         return feats
 
 
