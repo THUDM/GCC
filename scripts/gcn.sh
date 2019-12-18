@@ -4,7 +4,7 @@ python train_graph_moco.py \
  --tb_path tensorboard \
  --softmax \
  --moco \
- --readout "avg" \
+ --readout "set2set" \
  --restart-prob 0.9 \
  --rw-hops 64 \
  --subgraph-size 64 \

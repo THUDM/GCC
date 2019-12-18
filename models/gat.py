@@ -10,24 +10,25 @@ import dgl.function as fn
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dgl.model_zoo.chem.gnn import GCNLayer
+from dgl.model_zoo.chem.gnn import GATLayer
 from dgl.nn.pytorch import AvgPooling, Set2Set
 
 
-class UnsupervisedGCN(nn.Module):
-    def __init__(
-        self, hidden_size=64, num_layer=2, readout="avg", layernorm: bool = False
-    ):
-        super(UnsupervisedGCN, self).__init__()
+class UnsupervisedGAT(nn.Module):
+    def __init__(self, hidden_size=64, num_layer=2, readout='avg', num_heads=4):
+        super(UnsupervisedGAT, self).__init__()
         self.layers = nn.ModuleList(
             [
-                GCNLayer(
+                GATLayer(
                     in_feats=hidden_size,
-                    out_feats=hidden_size,
-                    activation=F.relu if i + 1 < num_layer else None,
+                    out_feats=hidden_size // 4,
+                    num_heads=4,
+                    feat_drop=0.0,
+                    attn_drop=0.0,
+                    alpha=0.2,
                     residual=False,
-                    batchnorm=False,
-                    dropout=0.0
+                    agg_mode='flatten',
+                    activation=F.leaky_relu if i + 1 < num_layer else None
                 )
                 for i in range(num_layer)
             ]
@@ -42,10 +43,6 @@ class UnsupervisedGCN(nn.Module):
             self.readout = lambda _, x: x
         else:
             raise NotImplementedError
-        self.layernorm = layernorm
-        if layernorm:
-            self.ln = nn.LayerNorm(hidden_size, elementwise_affine=False)
-            # self.ln = nn.BatchNorm1d(hidden_size, affine=False)
 
     def forward(self, g, feats):
         for layer in self.layers:
@@ -53,13 +50,11 @@ class UnsupervisedGCN(nn.Module):
         feats = self.readout(g, feats)
         if isinstance(self.readout, Set2Set):
             feats = self.linear(feats)
-        if self.layernorm:
-            feats = self.ln(feats)
         return feats
 
 
 if __name__ == "__main__":
-    model = UnsupervisedGCN()
+    model = UnsupervisedGAT()
     print(model)
     g = dgl.DGLGraph()
     g.add_nodes(3)
