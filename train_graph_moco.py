@@ -274,10 +274,10 @@ def main(args):
         )
     elif args.model == "gat":
         model = UnsupervisedGAT(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm
                 )
         model_ema = UnsupervisedGAT(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm
                 )
     else:
         raise NotImplementedError("model not supported {}".format(args.model))

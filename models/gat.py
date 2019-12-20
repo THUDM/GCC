@@ -15,7 +15,8 @@ from dgl.nn.pytorch import AvgPooling, Set2Set
 
 
 class UnsupervisedGAT(nn.Module):
-    def __init__(self, hidden_size=64, num_layer=2, readout='avg', num_heads=4):
+    def __init__(self, hidden_size=64, num_layer=2, readout='avg', num_heads=4,
+            layernorm: bool = False):
         super(UnsupervisedGAT, self).__init__()
         self.layers = nn.ModuleList(
             [
@@ -44,12 +45,22 @@ class UnsupervisedGAT(nn.Module):
         else:
             raise NotImplementedError
 
+        self.layernorm = layernorm
+        if layernorm:
+            self.lns = nn.ModuleList(
+                [nn.LayerNorm(hidden_size, elementwise_affine=True)
+                    for i in range(num_layer + 1)])
+
     def forward(self, g, feats):
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
             feats = layer(g, feats)
+            if self.layernorm:
+                feats = self.lns[i](feats)
         feats = self.readout(g, feats)
         if isinstance(self.readout, Set2Set):
             feats = self.linear(feats)
+        if self.layernorm:
+            feats = self.lns[-1](feats)
         return feats
 
 
