@@ -65,6 +65,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
     #  g = yuxiao_kdd17_graph_to_dgl("data_bin/ca-GrQc-SNAP.txtu.lpm.lscc")
-    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file()]
+    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1]
     logger.info("save graphs to %s", args.save_file)
     save_graphs(args.save_file, graphs)
