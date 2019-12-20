@@ -9,6 +9,7 @@ import dgl
 import torch
 import torch.nn.functional as F
 from dgl.data import AmazonCoBuy, Coauthor
+import dgl.data
 import scipy.sparse as sparse
 import numpy as np
 from itertools import accumulate
@@ -36,18 +37,26 @@ class GraphDataset(torch.utils.data.Dataset):
         self.restart_prob = restart_prob
         self.hidden_size = hidden_size
         assert(hidden_size > 1)
-        graphs = []
+        #  graphs = []
+        graphs, _ = dgl.data.utils.load_graphs("data_bin/dgl/graphs.bin")
         for name in ["cs", "physics"]:
             g = Coauthor(name)[0]
+            g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
+            g.readonly()
             graphs.append(g)
         for name in ["computers", "photo"]:
             g = AmazonCoBuy(name)[0]
+            g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
+            g.readonly()
             graphs.append(g)
         # more graphs are comming ...
+        print("load graph done")
+        self.graphs = graphs
+        self.length = sum([g.number_of_nodes() for g in self.graphs])
 
-        self.graph = dgl.batch(graphs, node_attrs=None, edge_attrs=None)
-        self.graph.remove_nodes((self.graph.in_degrees() == 0).nonzero().squeeze())
-        self.graph.readonly()
+        #  self.graph = dgl.batch(graphs, node_attrs=None, edge_attrs=None)
+        #  self.graph.readonly()
+        #  print(self.graph.number_of_nodes(), self.graph.number_of_edges())
 
     def add_graph_features(self, g):
         # We use sigular vectors of normalized graph laplacian as vertex features.
@@ -79,19 +88,28 @@ class GraphDataset(torch.utils.data.Dataset):
         return g
 
     def __len__(self):
-        return self.graph.number_of_nodes()
+        return self.length
 
     def __getitem__(self, idx):
+        graph_idx = 0
+        node_idx = idx
+        for i in range(len(self.graphs)):
+            if  node_idx < self.graphs[i].number_of_nodes():
+                graph_idx = i
+                break
+            else:
+                node_idx -= self.graphs[i].number_of_nodes()
+
         traces = dgl.contrib.sampling.deepinf_random_walk_with_restart(
-            self.graph,
-            seeds=[idx],
+            self.graphs[graph_idx],
+            seeds=[node_idx],
             restart_prob=self.restart_prob,
             num_traces=2,
             num_hops=self.rw_hops,
             num_unique=self.subgraph_size)[0]
-        assert traces[0][0].item() == idx, traces[1][0].item() == idx
+        assert traces[0][0].item() == node_idx, traces[1][0].item() == node_idx
 
-        graph_q, graph_k = self.graph.subgraphs(traces) # equivalent to x_q and x_k in moco paper
+        graph_q, graph_k = self.graphs[graph_idx].subgraphs(traces) # equivalent to x_q and x_k in moco paper
         graph_q = self.add_graph_features(graph_q)
         graph_k = self.add_graph_features(graph_k)
         return graph_q, graph_k
