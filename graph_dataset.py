@@ -14,6 +14,8 @@ import scipy.sparse as sparse
 import numpy as np
 from itertools import accumulate
 
+from cogdl.datasets import build_dataset
+
 class GraphBatcher:
     def __init__(self, graph_q, graph_k, graph_q_roots, graph_k_roots):
         self.graph_q = graph_q
@@ -115,8 +117,33 @@ class GraphDataset(torch.utils.data.Dataset):
         return graph_q, graph_k
 
 
+class CogDLGraphDataset(GraphDataset):
+    def __init__(self, dataset, rw_hops=2048, subgraph_size=128, restart_prob=0.6, hidden_size=64):
+        self.rw_hops = rw_hops
+        self.subgraph_size = subgraph_size
+        self.restart_prob = restart_prob
+        self.hidden_size = hidden_size
+        assert(hidden_size > 1)
+
+        class tmp():
+            # HACK
+            pass
+        args = tmp()
+        args.dataset = dataset
+        data = build_dataset(args)[0]
+        self.graph = dgl.DGLGraph()
+        src, dst = data.edge_index.tolist()
+        self.graph.add_nodes(data.y.shape[0])
+        self.graph.add_edges(src, dst)
+        # self.graph = dgl.transform.remove_self_loop(self.graph)
+        self.graph.remove_nodes((self.graph.out_degrees() == 0).nonzero().squeeze())
+        self.graph.readonly()
+        self.graphs = [self.graph]
+        self.length = sum([g.number_of_nodes() for g in self.graphs])
+
 if __name__ == '__main__':
-    graph_dataset = GraphDataset()
+    # graph_dataset = GraphDataset()
+    graph_dataset = CogDLGraphDataset(dataset="wikipedia")
     graph_loader = torch.utils.data.DataLoader(
             dataset=graph_dataset,
             batch_size=20,

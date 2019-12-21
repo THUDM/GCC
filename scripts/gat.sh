@@ -2,6 +2,7 @@
 python train_graph_moco.py \
  --model_path saved \
  --tb_path tensorboard \
+ --model gat \
  --softmax \
  --moco \
  --readout "set2set" \
@@ -9,8 +10,7 @@ python train_graph_moco.py \
  --rw-hops 64 \
  --subgraph-size 64 \
  --hidden-size 32 \
- --nce_t 1\
- --layernorm \
- --gpu $1 \
- --dataset $2 \
- --exp ${3:-exp}
+ --optimizer adam \
+ --weight_decay 0.0001 \
+ --num_workers 16 \
+ --gpu $1
