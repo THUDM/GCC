@@ -11,8 +11,9 @@ import torch.nn.functional as F
 from dgl.data import AmazonCoBuy, Coauthor
 import dgl.data
 import scipy.sparse as sparse
-import numpy as np
+from scipy.sparse.linalg import eigsh
 from itertools import accumulate
+import sklearn.preprocessing as preprocessing
 
 class GraphBatcher:
     def __init__(self, graph_q, graph_k, graph_q_roots, graph_k_roots):
@@ -58,28 +59,38 @@ class GraphDataset(torch.utils.data.Dataset):
         #  self.graph.readonly()
         #  print(self.graph.number_of_nodes(), self.graph.number_of_edges())
 
-    def add_graph_features(self, g):
+    def add_graph_features(self, g, retry=10):
         # We use sigular vectors of normalized graph laplacian as vertex features.
         # It could be viewed as a generalization of positional embedding in the
         # attention is all you need paper.
         # Recall that the eignvectors of normalized laplacian of a line graph are cos/sin functions.
         # See section 2.4 of http://www.cs.yale.edu/homes/spielman/561/2009/lect02-09.pdf
         n = g.number_of_nodes()
-        adj = g.adjacency_matrix_scipy(return_edge_ids=False).astype(float)
+        adj = g.adjacency_matrix_scipy(transpose=False, return_edge_ids=False).astype(float)
         norm = sparse.diags(
                 dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5,
                 dtype=float)
         laplacian = norm * adj * norm
 
         k=min(n-1, self.hidden_size-1)
-        u, s, _ = sparse.linalg.svds(
-                laplacian,
-                k=k,
-                which='LM',
-                return_singular_vectors='u')
-        x = u * sparse.diags(np.sqrt(s))
+        for i in range(retry):
+            try:
+                s, u = eigsh(
+                        laplacian,
+                        k=k,
+                        which='LA',
+                        ncv=n)
+            except sparse.linalg.eigen.arpack.ArpackError:
+                print("arpack error, retry=", i)
+                if i + 1 == retry:
+                    sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
+                    exit()
+                    x = torch.zeros(g.number_of_nodes(), self.hidden_size)
+            else:
+                x = preprocessing.normalize(u, norm='l2')
+                break
+        #  x = u * sparse.diags(np.sqrt(np.abs(s)))
         x = torch.from_numpy(x)
-
         x = F.pad(x, (0, self.hidden_size-k), 'constant', 0)
         g.ndata['x'] = x.float()
         g.ndata['x'][0, -1] = 1.0
