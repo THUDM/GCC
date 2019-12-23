@@ -9,8 +9,13 @@ python train_graph_moco.py \
  --restart-prob 0.9 \
  --rw-hops 64 \
  --subgraph-size 64 \
- --hidden-size 32 \
+ --hidden-size 128 \
  --optimizer adam \
  --weight_decay 0.0001 \
- --num_workers 16 \
- --gpu $1
+ --num_workers 32 \
+ --nce_t 5 \
+ --alpha 0.998 \
+ --layernorm \
+ --gpu $1\
+ --dataset $2 \
+ --exp ${3:-exp}

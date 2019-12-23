@@ -257,12 +257,21 @@ def main(args):
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
 
-    train_dataset = GraphDataset(
-        rw_hops=args.rw_hops,
-        subgraph_size=args.subgraph_size,
-        restart_prob=args.restart_prob,
-        hidden_size=args.hidden_size,
-    )
+    if args.dataset == "dgl":
+        train_dataset = GraphDataset(
+            rw_hops=args.rw_hops,
+            subgraph_size=args.subgraph_size,
+            restart_prob=args.restart_prob,
+            hidden_size=args.hidden_size,
+        )
+    else:
+        train_dataset = CogDLGraphDataset(
+            dataset=args.dataset,
+            rw_hops=args.rw_hops,
+            subgraph_size=args.subgraph_size,
+            restart_prob=args.restart_prob,
+            hidden_size=args.hidden_size,
+        )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
