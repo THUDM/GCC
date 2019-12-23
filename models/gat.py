@@ -53,7 +53,7 @@ class UnsupervisedGAT(nn.Module):
                 [nn.LayerNorm(hidden_size, elementwise_affine=True)
                     for i in range(num_layer + 1)])
 
-    def forward(self, g, feats):
+    def forward(self, g, feats, efeats=None):
         for i, layer in enumerate(self.layers):
             feats = layer(g, feats)
             if self.layernorm:
