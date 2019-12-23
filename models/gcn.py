@@ -16,7 +16,8 @@ from dgl.nn.pytorch import AvgPooling, Set2Set
 
 class UnsupervisedGCN(nn.Module):
     def __init__(
-        self, hidden_size=64, num_layer=2, readout="avg", layernorm: bool = False
+        self, hidden_size=64, num_layer=2, readout="avg", layernorm: bool = False,
+        set2set_lstm_layer: int = 3, set2set_iter: int = 6
     ):
         super(UnsupervisedGCN, self).__init__()
         self.layers = nn.ModuleList(
@@ -35,7 +36,7 @@ class UnsupervisedGCN(nn.Module):
         if readout == "avg":
             self.readout = AvgPooling()
         elif readout == "set2set":
-            self.readout = Set2Set(hidden_size, n_iters=6, n_layers=3)
+            self.readout = Set2Set(hidden_size, n_iters=set2set_iter, n_layers=set2set_lstm_layer)
             self.linear = nn.Linear(2 * hidden_size, hidden_size)
         elif readout == "root":
             # HACK: process outside the model part
