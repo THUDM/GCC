@@ -48,7 +48,7 @@ class UnsupervisedGCN(nn.Module):
             self.ln = nn.LayerNorm(hidden_size, elementwise_affine=False)
             # self.ln = nn.BatchNorm1d(hidden_size, affine=False)
 
-    def forward(self, g, feats):
+    def forward(self, g, feats, efeats=None):
         for layer in self.layers:
             feats = layer(g, feats)
         feats = self.readout(g, feats)
