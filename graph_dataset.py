@@ -31,7 +31,7 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
     subg = _add_graph_features(subg, hidden_size)
 
     mapping = dict([(v, k) for k, v in enumerate(subg.parent_nid.tolist())])
-    visit_count = torch.zeros(subg.number_of_edges(), dtype=torch.float)
+    visit_count = torch.zeros(subg.number_of_edges(), dtype=torch.long)
     for walk in trace:
         u = seed
         for v in walk.tolist():
@@ -39,7 +39,6 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
             eid = subg.edge_id(mapping[u], mapping[v])
             visit_count[eid] += 1
             u = v
-    visit_count /= visit_count.sum().clamp(1.0)
     subg.edata['efeat'] = visit_count
     return subg
 
@@ -68,7 +67,6 @@ def _add_graph_features(g, hidden_size, retry=10):
             print("arpack error, retry=", i)
             if i + 1 == retry:
                 sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
-                exit()
                 x = torch.zeros(g.number_of_nodes(), hidden_size)
         else:
             x = preprocessing.normalize(u, norm='l2')
@@ -216,10 +214,11 @@ if __name__ == '__main__':
             dataset=graph_dataset,
             batch_size=20,
             collate_fn=batcher(),
-            shuffle=False,
+            shuffle=True,
             num_workers=4)
     for step, batch in enumerate(graph_loader):
         print(batch.graph_q)
         print(batch.graph_q.ndata['x'].shape)
         print(batch.graph_q.batch_size)
+        print("max", batch.graph_q.edata['efeat'].max())
         break
