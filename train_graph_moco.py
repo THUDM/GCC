@@ -11,6 +11,8 @@ import time
 
 import tensorboard_logger as tb_logger
 import torch
+import dgl
+import numpy as np
 
 from graph_dataset import GraphDataset, CogDLGraphDataset, batcher
 from models.gcn import UnsupervisedGCN
@@ -18,6 +20,8 @@ from models.gat import UnsupervisedGAT
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import AverageMeter, adjust_learning_rate
+import psutil
+import warnings
 
 try:
     from apex import amp, optimizers
@@ -90,6 +94,7 @@ def parse_option():
     # GPU setting
     parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
     # fmt: on
+    parser.add_argument('--seed', type=int, default=42, help='random seed.')
 
     opt = parser.parse_args()
 
@@ -221,12 +226,17 @@ def train_moco(
 
         # print info
         if (idx + 1) % opt.print_freq == 0:
+            mem = psutil.virtual_memory()
+            #  print(f'{idx:8} - {mem.percent:5} - {mem.free/1024**3:10.2f} - {mem.available/1024**3:10.2f} - {mem.used/1024**3:10.2f}')
+            #  mem_used.append(mem.used/1024**3)
             print(
                 "Train: [{0}][{1}/{2}]\t"
                 "BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
                 "DT {data_time.val:.3f} ({data_time.avg:.3f})\t"
                 "loss {loss.val:.3f} ({loss.avg:.3f})\t"
-                "prob {prob.val:.3f} ({prob.avg:.3f})".format(
+                "prob {prob.val:.3f} ({prob.avg:.3f})\t"
+                "max output {out:.3f}\t"
+                "mem used {mem:.3f}".format(
                     epoch,
                     idx + 1,
                     len(train_loader),
@@ -234,9 +244,11 @@ def train_moco(
                     data_time=data_time,
                     loss=loss_meter,
                     prob=prob_meter,
+                    out=out[0].abs().max(),
+                    mem=mem.used/1024**3
                 )
             )
-            print(out[0])
+            #  print(out[0].abs().max())
 
         # tensorboard logger
         if (idx + 1) % opt.tb_freq == 0:
@@ -253,7 +265,6 @@ def train_moco(
 # def main(args, trial):
 def main(args):
     args = option_update(args)
-
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
 
@@ -272,13 +283,33 @@ def main(args):
             restart_prob=args.restart_prob,
             hidden_size=args.hidden_size,
         )
+    print("setting random seeds")
+    dgl.random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+
+    mem = psutil.virtual_memory()
+    print("before construct dataset", mem.used/1024**3)
+    train_dataset = GraphDataset(
+        rw_hops=args.rw_hops,
+        subgraph_size=args.subgraph_size,
+        restart_prob=args.restart_prob,
+        hidden_size=args.hidden_size,
+    )
+
+    mem = psutil.virtual_memory()
+    print("before construct dataloader", mem.used/1024**3)
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
         collate_fn=batcher(),
-        shuffle=True,
-        num_workers=args.num_workers,
+        shuffle=False,
+        num_workers=0
+        #  num_workers=args.num_workers,
     )
+    mem = psutil.virtual_memory()
+    print("before training", mem.used/1024**3)
 
     # create model and optimizer
     n_data = len(train_dataset)
@@ -389,7 +420,7 @@ def main(args):
             criterion,
             optimizer,
             logger,
-            args,
+            args
         )
         time2 = time.time()
         print("epoch {}, total time {:.2f}".format(epoch, time2 - time1))
@@ -448,6 +479,8 @@ def main(args):
 
 
 if __name__ == "__main__":
+
+    warnings.simplefilter('once', UserWarning)
     args = parse_option()
 
     main(args)
