@@ -16,6 +16,7 @@ from scipy.sparse.linalg import eigsh
 from itertools import accumulate
 import sklearn.preprocessing as preprocessing
 
+from cogdl.datasets import build_dataset
 
 def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
     subv = torch.unique(torch.cat(trace)).tolist()
@@ -183,12 +184,34 @@ class GraphDataset(torch.utils.data.Dataset):
         return graph_q, graph_k
 
 
+class CogDLGraphDataset(GraphDataset):
+    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0]):
+        self.rw_hops = rw_hops
+        self.subgraph_size = subgraph_size
+        self.restart_prob = restart_prob
+        self.hidden_size = hidden_size
+        self.step_dist = step_dist
+        assert(hidden_size > 1)
+
+        class tmp():
+            # HACK
+            pass
+        args = tmp()
+        args.dataset = dataset
+        data = build_dataset(args)[0]
+        self.graph = dgl.DGLGraph()
+        src, dst = data.edge_index.tolist()
+        self.graph.add_nodes(data.y.shape[0])
+        self.graph.add_edges(src, dst)
+        # self.graph = dgl.transform.remove_self_loop(self.graph)
+        self.graph.remove_nodes((self.graph.out_degrees() == 0).nonzero().squeeze())
+        self.graph.readonly()
+        self.graphs = [self.graph]
+        self.length = sum([g.number_of_nodes() for g in self.graphs])
+
 if __name__ == '__main__':
-    graph_dataset = GraphDataset(
-            rw_hops=16,
-            subgraph_size=16,
-            restart_prob=0.6,
-            hidden_size=8)
+    # graph_dataset = GraphDataset()
+    graph_dataset = CogDLGraphDataset(dataset="wikipedia")
     graph_loader = torch.utils.data.DataLoader(
             dataset=graph_dataset,
             batch_size=20,

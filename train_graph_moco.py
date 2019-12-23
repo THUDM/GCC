@@ -14,7 +14,7 @@ import torch
 import dgl
 import numpy as np
 
-from graph_dataset import GraphDataset, batcher
+from graph_dataset import GraphDataset, CogDLGraphDataset, batcher
 from models.gcn import UnsupervisedGCN
 from models.gat import UnsupervisedGAT
 from NCE.NCEAverage import MemoryMoCo
@@ -58,6 +58,11 @@ def parse_option():
 
     parser.add_argument("--amp", action="store_true", help="using mixed precision")
     parser.add_argument("--opt_level", type=str, default="O2", choices=["O1", "O2"])
+
+    parser.add_argument("--exp", type=str, default="")
+
+    # dataset definition
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog"])
 
     # model definition
     parser.add_argument("--model", type=str, default="gcn", choices=["gcn", "gat"])
@@ -107,8 +112,10 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
+        opt.exp,
+        opt.dataset,
         opt.method,
         opt.nce_k,
         opt.model,
@@ -260,12 +267,27 @@ def train_moco(
             prob_meter.reset()
     return epoch_loss_meter.avg
 
-
+# def main(args, trial):
 def main(args):
     args = option_update(args)
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
 
+    if args.dataset == "dgl":
+        train_dataset = GraphDataset(
+            rw_hops=args.rw_hops,
+            subgraph_size=args.subgraph_size,
+            restart_prob=args.restart_prob,
+            hidden_size=args.hidden_size,
+        )
+    else:
+        train_dataset = CogDLGraphDataset(
+            dataset=args.dataset,
+            rw_hops=args.rw_hops,
+            subgraph_size=args.subgraph_size,
+            restart_prob=args.restart_prob,
+            hidden_size=args.hidden_size,
+        )
     print("setting random seeds")
     dgl.random.seed(args.seed)
     np.random.seed(args.seed)
@@ -457,6 +479,11 @@ def main(args):
         del state
         torch.cuda.empty_cache()
 
+        # if (epoch + 1) % 5 == 0:
+        #     trial.report(loss, epoch)
+        #     if trial.should_prune():
+        #         raise optuna.exceptions.TrialPruned()
+
     return loss
 
 
@@ -468,12 +495,11 @@ if __name__ == "__main__":
     main(args)
     # import optuna
     # def objective(trial):
-    #     args.model_name = 'optuna'
     #     args.epochs = 30
-    #     # args.learning_rate = trial.suggest_loguniform('learning_rate', 1e-4, 1e-2)
-    #     # args.weight_decay = trial.suggest_loguniform('weight_decay', 1e-7, 1e-4)
-    #     # args.batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128])
-    #     return main(args)
+    #     args.learning_rate = trial.suggest_loguniform('learning_rate', 1e-3, 1e-2)
+    #     args.weight_decay = trial.suggest_loguniform('weight_decay', 1e-5, 1e-3)
+    #     args.alpha = 1 - trial.suggest_loguniform('alpha', 1e-4, 1e-2)
+    #     return main(args, trial)
 
     # study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
     # study.optimize(objective, n_trials=20)
