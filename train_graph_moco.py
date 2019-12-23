@@ -17,6 +17,7 @@ import numpy as np
 from graph_dataset import GraphDataset, CogDLGraphDataset, batcher
 from models.gcn import UnsupervisedGCN
 from models.gat import UnsupervisedGAT
+from models.mpnn import UnsupervisedMPNN
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import AverageMeter, adjust_learning_rate
@@ -65,13 +66,13 @@ def parse_option():
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog"])
 
     # model definition
-    parser.add_argument("--model", type=str, default="gcn", choices=["gcn", "gat"])
+    parser.add_argument("--model", type=str, default="gcn", choices=["gcn", "gat", "mpnn"])
+    # other possible choices: ggnn, mpnn, graphsage ...
     parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
     parser.add_argument("--set2set-lstm-layer", type=int, default="3", help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default="6", help="s2s iteration")
     parser.add_argument("--layernorm", action="store_true", help="apply layernorm on output feats")
-    # other possible choices: ggnn, mpnn, graphsage ...
 
     # loss function
     parser.add_argument("--softmax", action="store_true", help="using softmax contrastive loss rather than NCE")
@@ -183,19 +184,24 @@ def train_moco(
     for idx, batch in enumerate(train_loader):
         data_time.update(time.time() - end)
         graph_q, graph_k = batch.graph_q, batch.graph_k
+
         graph_q_feat = graph_q.ndata["x"].cuda(opt.gpu)
         graph_k_feat = graph_k.ndata["x"].cuda(opt.gpu)
+
+        graph_q_efeat = graph_q.edata['efeat'].cuda(opt.gpu)
+        graph_k_efeat = graph_k.edata['efeat'].cuda(opt.gpu)
+
         bsz = graph_q.batch_size
 
         # ===================forward=====================
 
-        feat_q = model(graph_q, graph_q_feat)
+        feat_q = model(graph_q, graph_q_feat, graph_q_efeat)
         if opt.moco:
             with torch.no_grad():
-                feat_k = model_ema(graph_k, graph_k_feat)
+                feat_k = model_ema(graph_k, graph_k_feat, graph_k_efeat)
         else:
             # end-to-end by back-propagation (the two encoders can be different).
-            feat_k = model_ema(graph_k, graph_k_feat)
+            feat_k = model_ema(graph_k, graph_k_feat, graph_k_efeat)
 
         if opt.readout == "root":
             feat_q = feat_q[batch.graph_q_roots]
@@ -241,7 +247,7 @@ def train_moco(
                 "loss {loss.val:.3f} ({loss.avg:.3f})\t"
                 "prob {prob.val:.3f} ({prob.avg:.3f})\t"
                 "max output {out:.3f}\t"
-                "mem used {mem:.3f}".format(
+                "mem {mem:.3f}".format(
                     epoch,
                     idx + 1,
                     len(train_loader),
@@ -309,7 +315,7 @@ def main(args):
         dataset=train_dataset,
         batch_size=args.batch_size,
         collate_fn=batcher(),
-        shuffle=False,
+        shuffle=True,
         num_workers=0
         #  num_workers=args.num_workers,
     )
@@ -335,6 +341,30 @@ def main(args):
                 hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
                 set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter
                 )
+    elif args.model == "mpnn":
+        model = UnsupervisedMPNN(
+                node_input_dim=args.hidden_size,
+                edge_input_class=8,
+                edge_input_dim=args.hidden_size,
+                output_dim=args.hidden_size,
+                node_hidden_dim=args.hidden_size,
+                edge_hidden_dim=args.hidden_size,
+                num_step_message_passing=args.num_layer,
+                num_step_set2set=args.set2set_iter,
+                num_layer_set2set=args.set2set_lstm_layer
+                )
+        model_ema = UnsupervisedMPNN(
+                node_input_dim=args.hidden_size,
+                edge_input_class=8,
+                edge_input_dim=args.hidden_size,
+                output_dim=args.hidden_size,
+                node_hidden_dim=args.hidden_size,
+                edge_hidden_dim=args.hidden_size,
+                num_step_message_passing=args.num_layer,
+                num_step_set2set=args.set2set_iter,
+                num_layer_set2set=args.set2set_lstm_layer
+                )
+
     else:
         raise NotImplementedError("model not supported {}".format(args.model))
 
