@@ -7,6 +7,10 @@
 
 import numpy as np
 import dgl
+import networkx as nx
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import io
 import torch
 import torch.nn.functional as F
 from dgl.data import AmazonCoBuy, Coauthor
@@ -17,6 +21,23 @@ from itertools import accumulate
 import sklearn.preprocessing as preprocessing
 
 from cogdl.datasets import build_dataset
+
+
+def plot_to_image(figure):
+	"""Converts the matplotlib plot specified by 'figure' to a PNG image and
+	returns it. The supplied figure is closed and inaccessible after this call."""
+	# Save the plot to a PNG in memory.
+	buf = io.BytesIO()
+	plt.savefig(buf, format='png')
+	# Closing the figure prevents it from being displayed directly inside
+	# the notebook.
+	plt.close(figure)
+	buf.seek(0)
+	# Convert PNG buffer to TF image
+	image = tf.image.decode_png(buf.getvalue(), channels=3)
+	# Add the batch dimension
+	image = tf.expand_dims(image, 0)
+	return torch.from_numpy(image.numpy())
 
 def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
     subv = torch.unique(torch.cat(trace)).tolist()
@@ -105,8 +126,8 @@ class GraphDataset(torch.utils.data.Dataset):
         self.step_dist = step_dist
         assert sum(step_dist) == 1.0
         assert(hidden_size > 1)
-        graphs = []
-        #  graphs, _ = dgl.data.utils.load_graphs("data_bin/dgl/graphs.bin")
+        #  graphs = []
+        graphs, _ = dgl.data.utils.load_graphs("data_bin/dgl/lscc_graphs.bin", [0, 1, 2])
         for name in ["cs", "physics"]:
             g = Coauthor(name)[0]
             g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
@@ -129,6 +150,21 @@ class GraphDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.length
+
+    def getplot(self, idx):
+        graph_q, graph_k = self.__getitem__(idx)
+        graph_q = graph_q.to_networkx()
+        graph_k = graph_k.to_networkx()
+        figure_q = plt.figure(figsize=(10, 10))
+        nx.draw(graph_q)
+        plt.draw()
+        image_q = plot_to_image(figure_q)
+        figure_k = plt.figure(figsize=(10, 10))
+        nx.draw(graph_k)
+        plt.draw()
+        image_k = plot_to_image(figure_k)
+        return image_q, image_k
+
 
     def __getitem__(self, idx):
         graph_idx = 0
@@ -210,6 +246,7 @@ class CogDLGraphDataset(GraphDataset):
 if __name__ == '__main__':
     # graph_dataset = GraphDataset()
     graph_dataset = CogDLGraphDataset(dataset="wikipedia")
+    pq, pk = graph_dataset.getplot(0)
     graph_loader = torch.utils.data.DataLoader(
             dataset=graph_dataset,
             batch_size=20,

@@ -9,7 +9,8 @@ import argparse
 import os
 import time
 
-import tensorboard_logger as tb_logger
+#  import tensorboard_logger as tb_logger
+from torch.utils.tensorboard import SummaryWriter
 import torch
 import dgl
 import numpy as np
@@ -158,7 +159,7 @@ def moment_update(model, model_ema, m):
 
 
 def train_moco(
-    epoch, train_loader, model, model_ema, contrast, criterion, optimizer, logger, opt
+    epoch, train_loader, model, model_ema, contrast, criterion, optimizer, sw, opt
 ):
     """
     one epoch training for moco
@@ -264,11 +265,11 @@ def train_moco(
         # tensorboard logger
         if (idx + 1) % opt.tb_freq == 0:
             global_step = epoch * len(train_loader) + idx
-            logger.log_value("moco_loss", loss_meter.avg, global_step)
-            logger.log_value("moco_prob", prob_meter.avg, global_step)
-            logger.log_value(
-                "learning_rate", optimizer.param_groups[0]["lr"], global_step
-            )
+            sw.add_scalar("moco_loss", loss_meter.avg, global_step)
+            sw.add_scalar("moco_prob", prob_meter.avg, global_step)
+            #  sw.add_scalar(
+            #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
+            #  )
             loss_meter.reset()
             prob_meter.reset()
     return epoch_loss_meter.avg
@@ -316,8 +317,7 @@ def main(args):
         batch_size=args.batch_size,
         collate_fn=batcher(),
         shuffle=True,
-        num_workers=0
-        #  num_workers=args.num_workers,
+        num_workers=args.num_workers,
     )
     mem = psutil.virtual_memory()
     print("before training", mem.used/1024**3)
@@ -441,7 +441,13 @@ def main(args):
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     # tensorboard
-    logger = tb_logger.Logger(logdir=args.tb_folder, flush_secs=2)
+    #  logger = tb_logger.Logger(logdir=args.tb_folder, flush_secs=2)
+    sw = SummaryWriter(args.tb_folder)
+    plots_q, plots_k = zip(*[train_dataset.getplot(i) for i in range(5)])
+    plots_q = torch.cat(plots_q)
+    plots_k = torch.cat(plots_k)
+    sw.add_images('images/graph_q', plots_q, 0, dataformats="NHWC")
+    sw.add_images('images/graph_k', plots_k, 0, dataformats="NHWC")
 
     # routine
     for epoch in range(args.start_epoch, args.epochs + 1):
@@ -458,7 +464,7 @@ def main(args):
             contrast,
             criterion,
             optimizer,
-            logger,
+            sw,
             args
         )
         time2 = time.time()
