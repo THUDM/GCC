@@ -16,6 +16,7 @@ import torch
 from graph_dataset import CogDLGraphDataset, GraphDataset, batcher
 from models.gat import UnsupervisedGAT
 from models.gcn import UnsupervisedGCN
+from models.mpnn import UnsupervisedMPNN
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from train_graph_moco import option_update, parse_option
@@ -81,19 +82,23 @@ def main(args):
             readout=args.readout,
             layernorm=args.layernorm,
         )
-        model_ema = UnsupervisedGCN(
-            hidden_size=args.hidden_size,
-            num_layer=args.num_layer,
-            readout=args.readout,
-            layernorm=args.layernorm,
-        )
     elif args.model == "gat":
         model = UnsupervisedGAT(
-            hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
-        )
-        model_ema = UnsupervisedGAT(
-            hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout
-        )
+                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
+                set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter
+                )
+    elif args.model == "mpnn":
+        model = UnsupervisedMPNN(
+                node_input_dim=args.hidden_size,
+                edge_input_class=8,
+                edge_input_dim=args.hidden_size,
+                output_dim=args.hidden_size,
+                node_hidden_dim=args.hidden_size,
+                edge_hidden_dim=args.hidden_size,
+                num_step_message_passing=args.num_layer,
+                num_step_set2set=args.set2set_iter,
+                num_layer_set2set=args.set2set_lstm_layer
+                )
     else:
         raise NotImplementedError("model not supported {}".format(args.model))
 

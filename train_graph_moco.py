@@ -39,7 +39,7 @@ def parse_option():
     parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
     parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
-    parser.add_argument("--num_workers", type=int, default=24, help="num of workers to use")
+    parser.add_argument("--num_workers", type=int, default=32, help="num of workers to use")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
 
     # optimization
@@ -49,7 +49,7 @@ def parse_option():
     parser.add_argument("--lr_decay_rate", type=float, default=0.0, help="decay rate for learning rate")
     parser.add_argument("--beta1", type=float, default=0.9, help="beta1 for adam")
     parser.add_argument("--beta2", type=float, default=0.999, help="beta2 for Adam")
-    parser.add_argument("--weight_decay", type=float, default=1e-5, help="weight decay")
+    parser.add_argument("--weight_decay", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--momentum", type=float, default=0.9, help="momentum")
 
     # resume
@@ -89,6 +89,7 @@ def parse_option():
     # specify folder
     parser.add_argument("--model_path", type=str, default=None, help="path to save model")
     parser.add_argument("--tb_path", type=str, default=None, help="path to tensorboard")
+    parser.add_argument("--load-path", type=str, default=None, help="loading checkpoint at test time")
 
     # memory setting
     parser.add_argument("--moco", action="store_true", help="using MoCo (otherwise Instance Discrimination)")
@@ -142,9 +143,12 @@ def option_update(opt):
 
     opt.model_name = "{}_aug_{}".format(opt.model_name, opt.aug)
 
-    opt.model_folder = os.path.join(opt.model_path, opt.model_name)
-    if not os.path.isdir(opt.model_folder):
-        os.makedirs(opt.model_folder)
+    if opt.load_path is None:
+        opt.model_folder = os.path.join(opt.model_path, opt.model_name)
+        if not os.path.isdir(opt.model_folder):
+            os.makedirs(opt.model_folder)
+    else:
+        opt.model_folder = opt.load_path
 
     opt.tb_folder = os.path.join(opt.tb_path, opt.model_name)
     if not os.path.isdir(opt.tb_folder):
