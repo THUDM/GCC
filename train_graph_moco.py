@@ -71,8 +71,8 @@ def parse_option():
     # other possible choices: ggnn, mpnn, graphsage ...
     parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
-    parser.add_argument("--set2set-lstm-layer", type=int, default="3", help="lstm layers for s2s")
-    parser.add_argument("--set2set-iter", type=int, default="6", help="s2s iteration")
+    parser.add_argument("--set2set-lstm-layer", type=int, default=3, help="lstm layers for s2s")
+    parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
     parser.add_argument("--layernorm", action="store_true", help="apply layernorm on output feats")
 
     # loss function
