@@ -64,7 +64,7 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
     return subg
 
 def _add_graph_features(g, hidden_size, retry=10):
-    # We use sigular vectors of normalized graph laplacian as vertex features.
+    # We use eigenvectors of normalized graph laplacian as vertex features.
     # It could be viewed as a generalization of positional embedding in the
     # attention is all you need paper.
     # Recall that the eignvectors of normalized laplacian of a line graph are cos/sin functions.
