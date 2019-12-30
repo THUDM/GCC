@@ -116,7 +116,7 @@ def parse_option():
 
 
 def option_update(opt):
-    prefix = "Grpah_MoCo{}".format(opt.alpha)
+    prefix = "Graph_MoCo{}".format(opt.alpha)
     opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_moco_{}_nce_t{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
         opt.exp,
