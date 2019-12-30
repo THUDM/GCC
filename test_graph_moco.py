@@ -13,7 +13,8 @@ import numpy as np
 import tensorboard_logger as tb_logger
 import torch
 
-from graph_dataset import CogDLGraphDataset, GraphDataset, batcher
+from graph_dataset import CogDLGraphDataset, GraphDataset
+from data_util import batcher
 from models.gat import UnsupervisedGAT
 from models.gcn import UnsupervisedGCN
 from models.mpnn import UnsupervisedMPNN
