@@ -15,8 +15,8 @@ import torch
 import dgl
 import numpy as np
 
-from graph_dataset import GraphDataset, CogDLGraphDataset
-import data_util.batcher
+from graph_dataset import GraphDataset, CogDLGraphDataset, LoadBalanceGraphDataset, worker_init_fn
+import data_util
 from models.gcn import UnsupervisedGCN
 from models.gat import UnsupervisedGAT
 from models.mpnn import UnsupervisedMPNN
@@ -116,7 +116,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_subgraph_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -130,7 +130,6 @@ def option_update(opt):
         opt.moco,
         opt.nce_t,
         opt.readout,
-        opt.subgraph_size,
         opt.rw_hops,
         opt.restart_prob,
         opt.optimizer,
@@ -169,7 +168,7 @@ def train_moco(
     """
     one epoch training for moco
     """
-
+    n_batch = train_loader.dataset.total // opt.batch_size
     model.train()
     model_ema.eval()
 
@@ -256,7 +255,7 @@ def train_moco(
                 "mem {mem:.3f}".format(
                     epoch,
                     idx + 1,
-                    len(train_loader),
+                    n_batch,
                     batch_time=batch_time,
                     data_time=data_time,
                     loss=loss_meter,
@@ -269,7 +268,7 @@ def train_moco(
 
         # tensorboard logger
         if (idx + 1) % opt.tb_freq == 0:
-            global_step = epoch * len(train_loader) + idx
+            global_step = epoch * n_batch + idx
             sw.add_scalar("moco_loss", loss_meter.avg, global_step)
             sw.add_scalar("moco_prob", prob_meter.avg, global_step)
             #  sw.add_scalar(
@@ -285,12 +284,14 @@ def main(args):
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
 
+    mem = psutil.virtual_memory()
+    print("before construct dataset", mem.used/1024**3)
     if args.dataset == "dgl":
-        train_dataset = GraphDataset(
+        train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
-            subgraph_size=args.subgraph_size,
             restart_prob=args.restart_prob,
             hidden_size=args.hidden_size,
+            num_workers=args.num_workers
         )
     else:
         train_dataset = CogDLGraphDataset(
@@ -307,28 +308,20 @@ def main(args):
     torch.cuda.manual_seed(args.seed)
 
     mem = psutil.virtual_memory()
-    print("before construct dataset", mem.used/1024**3)
-    train_dataset = GraphDataset(
-        rw_hops=args.rw_hops,
-        subgraph_size=args.subgraph_size,
-        restart_prob=args.restart_prob,
-        hidden_size=args.hidden_size,
-    )
-
-    mem = psutil.virtual_memory()
     print("before construct dataloader", mem.used/1024**3)
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
         collate_fn=data_util.batcher(),
-        shuffle=True,
+        #  shuffle=True,
         num_workers=args.num_workers,
+        worker_init_fn=worker_init_fn
     )
     mem = psutil.virtual_memory()
     print("before training", mem.used/1024**3)
 
     # create model and optimizer
-    n_data = len(train_dataset)
+    n_data = train_dataset.total
 
     if args.model == "gcn":
         model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
@@ -448,11 +441,11 @@ def main(args):
     # tensorboard
     #  logger = tb_logger.Logger(logdir=args.tb_folder, flush_secs=2)
     sw = SummaryWriter(args.tb_folder)
-    plots_q, plots_k = zip(*[train_dataset.getplot(i) for i in range(5)])
-    plots_q = torch.cat(plots_q)
-    plots_k = torch.cat(plots_k)
-    sw.add_images('images/graph_q', plots_q, 0, dataformats="NHWC")
-    sw.add_images('images/graph_k', plots_k, 0, dataformats="NHWC")
+    #  plots_q, plots_k = zip(*[train_dataset.getplot(i) for i in range(5)])
+    #  plots_q = torch.cat(plots_q)
+    #  plots_k = torch.cat(plots_k)
+    #  sw.add_images('images/graph_q', plots_q, 0, dataformats="NHWC")
+    #  sw.add_images('images/graph_k', plots_k, 0, dataformats="NHWC")
 
     # routine
     for epoch in range(args.start_epoch, args.epochs + 1):
@@ -542,5 +535,5 @@ if __name__ == "__main__":
     #     args.alpha = 1 - trial.suggest_loguniform('alpha', 1e-4, 1e-2)
     #     return main(args, trial)
 
-    # study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
+    #, work_init_fn study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
     # study.optimize(objective, n_trials=20)
