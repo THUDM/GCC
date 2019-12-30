@@ -10,14 +10,14 @@ python test_graph_moco.py \
  --restart-prob 0.9 \
  --rw-hops 64 \
  --subgraph-size 64 \
- --hidden-size 128 \
+ --hidden-size 32 \
  --optimizer adam \
  --weight_decay 0.0001 \
- --epochs 1000 \
  --num_workers 32\
- --nce_t 5 \
- --alpha 0.998 \
- --layernorm \
+ --alpha 0.999 \
+ --num-layer 3 \
+ --set2set-lstm-layer 1 \
+ --set2set-iter 2 \
  --gpu $1 \
  --dataset $2 \
- --exp ${3:-exp}
+ --load-path saved/Grpah_MoCo0.999__dgl_softmax_16384_gat_layer_3_lr_0.005_decay_0.0001_bsz_32_moco_True_nce_t100_readout_set2set_subgraph_64_rw_hops_64_restart_prob_0.9_optimizer_adam_layernorm_False_s2s_lstm_layer_1_s2s_iter_2_aug_1st

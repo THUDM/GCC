@@ -202,10 +202,11 @@ class CogDLGraphDataset(GraphDataset):
         data = build_dataset(args)[0]
         self.graph = dgl.DGLGraph()
         src, dst = data.edge_index.tolist()
-        self.graph.add_nodes(data.y.shape[0])
+        num_nodes = data.edge_index.max() + 1
+        self.graph.add_nodes(num_nodes)
         self.graph.add_edges(src, dst)
-        # self.graph = dgl.transform.remove_self_loop(self.graph)
-        self.graph.remove_nodes((self.graph.out_degrees() == 0).nonzero().squeeze())
+        self.graph.add_edges(dst, src)
+        assert all(self.graph.out_degrees() != 0)
         self.graph.readonly()
         self.graphs = [self.graph]
         self.length = sum([g.number_of_nodes() for g in self.graphs])

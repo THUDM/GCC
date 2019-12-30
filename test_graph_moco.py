@@ -13,7 +13,8 @@ import numpy as np
 import tensorboard_logger as tb_logger
 import torch
 
-from graph_dataset import CogDLGraphDataset, GraphDataset, batcher
+from graph_dataset import CogDLGraphDataset, GraphDataset
+from data_util import batcher
 from models.gat import UnsupervisedGAT
 from models.gcn import UnsupervisedGCN
 from models.mpnn import UnsupervisedMPNN
@@ -35,9 +36,10 @@ def test_moco(train_loader, model, opt):
         graph_q = batch.graph_q
         bsz = graph_q.batch_size
         graph_q_feat = graph_q.ndata["x"].cuda(opt.gpu)
+        graph_q_efeat = graph_q.edata['efeat'].cuda(opt.gpu)
 
         with torch.no_grad():
-            feat_q = model(graph_q, graph_q_feat)
+            feat_q = model(graph_q, graph_q_feat, graph_q_efeat)
 
         assert feat_q.shape == (bsz, opt.hidden_size)
         emb_list.append(feat_q.detach().cpu())
@@ -121,7 +123,7 @@ def main(args):
         torch.cuda.empty_cache()
 
         emb = test_moco(train_loader, model, args)
-        np.save(model_path[:args.resume.find(".pth")], emb.numpy())
+        np.save(os.path.join(args.model_path, args.dataset), emb.numpy())
     else:
         print("=> no checkpoint found at '{}'".format(model_path))
 
