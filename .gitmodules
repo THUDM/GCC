@@ -1,0 +1,3 @@
+[submodule "cogdl"]
+	path = cogdl
+	url = https://github.com/qibinc/cogdl
