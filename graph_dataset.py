@@ -6,6 +6,7 @@
 # TODO:
 
 import numpy as np
+import operator
 import dgl
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -16,8 +17,91 @@ import dgl.data
 from cogdl.datasets import build_dataset
 import data_util
 
+def work_init_fn(worker_id):
+    worker_info = torch.utils.data.get_worker_info()
+    dataset = worker_info.dataset
+    dataset.graphs, _ = dgl.data.utils.load_graphs(
+            dataset.dgl_graphs_file,
+            dataset.jobs[worker_id]
+            )
+    dataset.length = sum([g.number_of_nodes() for g in dataset.graphs])
+    print(worker_id, dataset.length)
+
+class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
+    def __init__(self, rw_hops=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0],
+            num_workers=1,
+            dgl_graphs_file="data_bin/dgl/graphs.bin"):
+        super(LoadBalanceGraphDataset).__init__()
+        self.rw_hops = rw_hops
+        self.restart_prob = restart_prob
+        self.hidden_size = hidden_size
+        self.step_dist = step_dist
+        assert sum(step_dist) == 1.0
+        assert(hidden_size > 1)
+        self.dgl_graphs_file = dgl_graphs_file
+        graphs, _ = dgl.data.utils.load_graphs(dgl_graphs_file)
+        print("load graph done")
+        graph_sizes = [g.number_of_nodes() for g in graphs]
+        del graphs
+
+        # a simple greedy algorithm for load balance
+        # sorted graphs w.r.t its size in decreasing order
+        # for each graph, assign it to the worker with least workload
+        jobs = [list() for i in range(num_workers)]
+        workloads = [0] * num_workers
+        graph_sizes = sorted(enumerate(graph_sizes), key=operator.itemgetter(1), reverse=True)
+        for idx, size in graph_sizes:
+            argmin = workloads.index(min(workloads))
+            workloads[argmin] += size
+            jobs[argmin].append(idx)
+        self.jobs = jobs
+
+    def __iter__(self):
+        for i in range(self.length):
+            yield self.__getitem__(i)
+
+    def __getitem__(self, idx):
+        graph_idx = 0
+        node_idx = idx
+        for i in range(len(self.graphs)):
+            if  node_idx < self.graphs[i].number_of_nodes():
+                graph_idx = i
+                break
+            else:
+                node_idx -= self.graphs[i].number_of_nodes()
+
+        step = np.random.choice(len(self.step_dist), 1, p=self.step_dist)[0]
+        if step == 0:
+            other_node_idx = node_idx
+        else:
+            other_node_idx = dgl.contrib.sampling.random_walk(
+                    g=self.graphs[graph_idx],
+                    seeds=[node_idx],
+                    num_traces=1,
+                    num_hops=step
+                    )[0][0][-1].item()
+
+        traces = dgl.contrib.sampling.random_walk_with_restart(
+            self.graphs[graph_idx],
+            seeds=[node_idx, other_node_idx],
+            restart_prob=self.restart_prob,
+            max_nodes_per_seed=self.rw_hops)
+
+        graph_q = data_util._rwr_trace_to_dgl_graph(
+                g=self.graphs[graph_idx],
+                seed=node_idx,
+                trace=traces[0],
+                hidden_size=self.hidden_size)
+        graph_k = data_util._rwr_trace_to_dgl_graph(
+                g=self.graphs[graph_idx],
+                seed=other_node_idx,
+                trace=traces[1],
+                hidden_size=self.hidden_size)
+        return graph_q, graph_k
+
 class GraphDataset(torch.utils.data.Dataset):
     def __init__(self, rw_hops=64, subgraph_size=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0]):
+        super(GraphDataset).__init__()
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
@@ -126,7 +210,19 @@ class CogDLGraphDataset(GraphDataset):
         self.length = sum([g.number_of_nodes() for g in self.graphs])
 
 if __name__ == '__main__':
-    # graph_dataset = GraphDataset()
+    num_workers=2
+    graph_dataset = LoadBalanceGraphDataset(num_workers=num_workers)
+    graph_loader = torch.utils.data.DataLoader(
+            graph_dataset,
+            batch_size=20,
+            collate_fn=data_util.batcher(),
+            num_workers=num_workers,
+            worker_init_fn=work_init_fn
+            )
+    for step, batch in enumerate(graph_loader):
+        print(batch.graph_q)
+        break
+    exit(0)
     graph_dataset = CogDLGraphDataset(dataset="wikipedia")
     pq, pk = graph_dataset.getplot(0)
     graph_loader = torch.utils.data.DataLoader(
