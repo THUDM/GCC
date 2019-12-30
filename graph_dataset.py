@@ -30,12 +30,14 @@ def worker_init_fn(worker_id):
 class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
     def __init__(self, rw_hops=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0],
             num_workers=1,
-            dgl_graphs_file="data_bin/dgl/graphs.bin"):
+            dgl_graphs_file="data_bin/dgl/graphs.bin",
+            num_samples=10000):
         super(LoadBalanceGraphDataset).__init__()
         self.rw_hops = rw_hops
         self.restart_prob = restart_prob
         self.hidden_size = hidden_size
         self.step_dist = step_dist
+        self.num_samples = num_samples
         assert sum(step_dist) == 1.0
         assert(hidden_size > 1)
         self.dgl_graphs_file = dgl_graphs_file
@@ -55,11 +57,13 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             workloads[argmin] += size
             jobs[argmin].append(idx)
         self.jobs = jobs
-        self.total = sum(workloads)
+        self.total = self.num_samples * num_workers
 
     def __iter__(self):
-        for i in range(self.length):
-            yield self.__getitem__(i)
+        samples = torch.randint(low=0, high=self.length,
+                size=(self.num_samples, ), dtype=torch.long).tolist()
+        for idx in samples:
+            yield self.__getitem__(idx)
 
     def __getitem__(self, idx):
         graph_idx = 0

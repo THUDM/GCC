@@ -41,6 +41,7 @@ def parse_option():
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
     parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
     parser.add_argument("--num_workers", type=int, default=32, help="num of workers to use")
+    parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
 
     # optimization
@@ -116,7 +117,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "Grpah_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_moco_{}_nce_t{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_moco_{}_nce_t{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -127,6 +128,7 @@ def option_update(opt):
         opt.learning_rate,
         opt.weight_decay,
         opt.batch_size,
+        opt.num_samples,
         opt.moco,
         opt.nce_t,
         opt.readout,
@@ -291,7 +293,8 @@ def main(args):
             rw_hops=args.rw_hops,
             restart_prob=args.restart_prob,
             hidden_size=args.hidden_size,
-            num_workers=args.num_workers
+            num_workers=args.num_workers,
+            num_samples=args.num_samples
         )
     else:
         train_dataset = CogDLGraphDataset(
