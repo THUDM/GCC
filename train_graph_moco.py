@@ -312,13 +312,8 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-<<<<<<< HEAD
         collate_fn=data_util.batcher(),
         #  shuffle=True,
-=======
-        collate_fn=batcher(),
-        shuffle=True,
->>>>>>> 2b7f300892391a31dc10e6e244bf79db8ccc53e6
         num_workers=args.num_workers,
         worker_init_fn=worker_init_fn
     )
