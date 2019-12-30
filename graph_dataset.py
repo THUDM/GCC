@@ -17,7 +17,7 @@ import dgl.data
 from cogdl.datasets import build_dataset
 import data_util
 
-def work_init_fn(worker_id):
+def worker_init_fn(worker_id):
     worker_info = torch.utils.data.get_worker_info()
     dataset = worker_info.dataset
     dataset.graphs, _ = dgl.data.utils.load_graphs(
@@ -55,6 +55,7 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             workloads[argmin] += size
             jobs[argmin].append(idx)
         self.jobs = jobs
+        self.total = sum(workloads)
 
     def __iter__(self):
         for i in range(self.length):
@@ -223,7 +224,7 @@ if __name__ == '__main__':
             batch_size=20,
             collate_fn=data_util.batcher(),
             num_workers=num_workers,
-            worker_init_fn=work_init_fn
+            worker_init_fn=worker_init_fn
             )
     mem = psutil.virtual_memory()
     print(mem.used/1024**3)
