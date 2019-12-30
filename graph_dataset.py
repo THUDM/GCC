@@ -28,18 +28,20 @@ def worker_init_fn(worker_id):
     print(worker_id, dataset.length)
 
 class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
-    def __init__(self, rw_hops=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0],
+    def __init__(self, rw_hops=64, restart_prob=0.8,
+            positional_embedding_size=32,
+            step_dist=[1.0, 0.0, 0.0],
             num_workers=1,
             dgl_graphs_file="data_bin/dgl/graphs.bin",
             num_samples=10000):
         super(LoadBalanceGraphDataset).__init__()
         self.rw_hops = rw_hops
         self.restart_prob = restart_prob
-        self.hidden_size = hidden_size
+        self.positional_embedding_size = positional_embedding_size
         self.step_dist = step_dist
         self.num_samples = num_samples
         assert sum(step_dist) == 1.0
-        assert(hidden_size > 1)
+        assert(positional_embedding_size > 1)
         self.dgl_graphs_file = dgl_graphs_file
         graphs, _ = dgl.data.utils.load_graphs(dgl_graphs_file)
         print("load graph done")
@@ -96,12 +98,14 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
                 g=self.graphs[graph_idx],
                 seed=node_idx,
                 trace=traces[0],
-                hidden_size=self.hidden_size)
+                positional_embedding_size=self.positional_embedding_size,
+                )
         graph_k = data_util._rwr_trace_to_dgl_graph(
                 g=self.graphs[graph_idx],
                 seed=other_node_idx,
                 trace=traces[1],
-                hidden_size=self.hidden_size)
+                positional_embedding_size=self.positional_embedding_size,
+                )
         return graph_q, graph_k
 
 class GraphDataset(torch.utils.data.Dataset):
@@ -216,7 +220,7 @@ class CogDLGraphDataset(GraphDataset):
         self.length = sum([g.number_of_nodes() for g in self.graphs])
 
 if __name__ == '__main__':
-    num_workers=32
+    num_workers=1
     import psutil
     mem = psutil.virtual_memory()
     print(mem.used/1024**3)
@@ -225,7 +229,7 @@ if __name__ == '__main__':
     print(mem.used/1024**3)
     graph_loader = torch.utils.data.DataLoader(
             graph_dataset,
-            batch_size=20,
+            batch_size=1,
             collate_fn=data_util.batcher(),
             num_workers=num_workers,
             worker_init_fn=worker_init_fn
@@ -236,8 +240,9 @@ if __name__ == '__main__':
         print(batch.graph_q.batch_size)
         mem = psutil.virtual_memory()
         print(mem.used/1024**3)
-        if step > 5:
-            break
+        #  print(batch.graph_q)
+        #  print(batch.graph_q.ndata['pos_directed'])
+        #  print(batch.graph_q.ndata['pos_undirected'])
     exit(0)
     graph_dataset = CogDLGraphDataset(dataset="wikipedia")
     pq, pk = graph_dataset.getplot(0)

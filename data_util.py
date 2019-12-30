@@ -5,12 +5,13 @@
 # Create Time: 2019/12/30 14:20
 # TODO:
 
-
+import numpy as np
+import scipy
 import torch
 import tensorflow as tf
 import io
 import scipy.sparse as sparse
-from scipy.sparse.linalg import eigsh
+from scipy.sparse import linalg
 import sklearn.preprocessing as preprocessing
 import torch.nn.functional as F
 import dgl
@@ -49,7 +50,7 @@ def plot_to_image(figure):
 	image = tf.expand_dims(image, 0)
 	return torch.from_numpy(image.numpy())
 
-def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
+def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
     subv = torch.unique(torch.cat(trace)).tolist()
     try:
         subv.remove(seed)
@@ -59,21 +60,92 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, hidden_size):
     subg = g.subgraph(subv)
     assert subg.parent_nid[0] == seed, "by construction, node 0 in subgraph should be the seed"
 
-    subg = _add_graph_features(subg, hidden_size)
+    subg = _add_undirected_graph_positional_embedding(subg, positional_embedding_size // 2)
 
     mapping = dict([(v, k) for k, v in enumerate(subg.parent_nid.tolist())])
-    visit_count = torch.zeros(subg.number_of_edges(), dtype=torch.long)
+    nfreq = torch.zeros(subg.number_of_nodes(), dtype=torch.long)
+    efreq = torch.zeros(subg.number_of_edges(), dtype=torch.long)
+
+    M = np.zeros(
+            shape=(subg.number_of_nodes(), subg.number_of_nodes()),
+            dtype=np.float32
+            )
     for walk in trace:
-        u = seed
+        u = mapping[seed]
+        nfreq[u] += 1
         for v in walk.tolist():
+            v = mapping[v]
+            nfreq[v] += 1
             # add edge feature for (u, v)
-            eid = subg.edge_id(mapping[u], mapping[v])
-            visit_count[eid] += 1
+            eid = subg.edge_id(u, v)
+            efreq[eid] += 1
+            M[u, v] += 1
             u = v
-    subg.edata['efeat'] = visit_count
+
+    subg = _add_directed_graph_positional_embedding(subg, M, positional_embedding_size // 2)
+
+    subg.ndata['nfreq'] = nfreq
+    subg.edata['efreq'] = efreq
+
+    subg.ndata['seed'] = torch.zeros(subg.number_of_nodes(), dtype=torch.long)
+    subg.ndata['seed'][0] = 1
     return subg
 
-def _add_graph_features(g, hidden_size, retry=10):
+def eigen_decomposision(n, k, laplacian, hidden_size, retry):
+    for i in range(retry):
+        if k == n-1:
+            s, u = np.linalg.eig(laplacian)
+            u = u[:, :k].real
+            # TODO eigenvalues are not necessarily ordered
+        else:
+            try:
+                s, u = linalg.eigsh(
+                        laplacian,
+                        k=k,
+                        which='LA',
+                        ncv=n)
+            except sparse.linalg.eigen.arpack.ArpackError:
+                print("arpack error, retry=", i)
+                if i + 1 == retry:
+                    sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
+                    u = torch.ones(n, hidden_size)
+            else:
+                break
+    x = preprocessing.normalize(u, norm='l2')
+    return x
+
+
+def _add_directed_graph_positional_embedding(g, M, hidden_size, retry=10, alpha=0.95):
+    # Follow https://networkx.github.io/documentation/networkx-1.9/reference/generated/networkx.linalg.laplacianmatrix.directed_laplacian_matrix.html#directed-laplacian-matrix
+    # We use its pagerank mode
+    n = g.number_of_nodes()
+    # add constant to dangling nodes' row
+    dangling = scipy.where(M.sum(axis=1) == 0)
+    for d in dangling[0]:
+        M[d] = 1.0 / n
+    # normalize
+    M = M / M.sum(axis=1)
+    P = alpha * M + (1 - alpha) / n
+    if n == 2:
+        evals, evecs = np.linalg.eig(P.T)
+        evecs = evecs[:, 0]
+    else:
+        evals, evecs = sparse.linalg.eigs(P.T, k=1, ncv=n)
+    v = evecs.flatten().real
+    p =  v / v.sum()
+    sqrtp = scipy.sqrt(p)
+    Q = sparse.spdiags(sqrtp, [0], n, n) * P * sparse.spdiags(1.0/sqrtp, [0], n, n)
+    #  I = scipy.identity(n)
+    #  laplacian = I - (Q + Q.T)/2.0
+    laplacian = (Q + Q.T)/2.0
+    k=min(n-1, hidden_size)
+    x = eigen_decomposision(n, k, laplacian, hidden_size, retry)
+    x = torch.from_numpy(x)
+    x = F.pad(x, (0, hidden_size-k), 'constant', 0)
+    g.ndata['pos_directed'] = x.float()
+    return g
+
+def _add_undirected_graph_positional_embedding(g, hidden_size, retry=10):
     # We use eigenvectors of normalized graph laplacian as vertex features.
     # It could be viewed as a generalization of positional embedding in the
     # attention is all you need paper.
@@ -85,29 +157,12 @@ def _add_graph_features(g, hidden_size, retry=10):
             dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5,
             dtype=float)
     laplacian = norm * adj * norm
-
-    k=min(n-1, hidden_size-1)
-    for i in range(retry):
-        try:
-            s, u = eigsh(
-                    laplacian,
-                    k=k,
-                    which='LA',
-                    ncv=n)
-        except sparse.linalg.eigen.arpack.ArpackError:
-            print("arpack error, retry=", i)
-            if i + 1 == retry:
-                sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
-                x = torch.zeros(g.number_of_nodes(), hidden_size)
-        else:
-            x = preprocessing.normalize(u, norm='l2')
-            break
-    #  x = u * sparse.diags(np.sqrt(np.abs(s)))
+    k=min(n-1, hidden_size)
+    if k == n-1:
+        laplacian = laplacian.todense()
+    x = eigen_decomposision(n, k, laplacian, hidden_size, retry)
     x = torch.from_numpy(x)
     x = F.pad(x, (0, hidden_size-k), 'constant', 0)
-    g.ndata['x'] = x.float()
-    g.ndata['x'][0, -1] = 1.0
-
-    # TODO netmf can also be part of vertex features
+    g.ndata['pos_undirected'] = x.float()
     return g
 

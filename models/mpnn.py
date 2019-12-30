@@ -34,9 +34,10 @@ class UnsupervisedMPNN(nn.Module):
         Number of set2set layers
     """
     def __init__(self,
-                 node_input_dim=32,
-                 edge_input_class=8,
-                 edge_input_dim=32,
+                 positional_embedding_size=32,
+                 max_node_freq=8,
+                 max_edge_freq=8,
+                 freq_embedding_size=32,
                  output_dim=32,
                  node_hidden_dim=32,
                  edge_hidden_dim=32,
@@ -46,9 +47,9 @@ class UnsupervisedMPNN(nn.Module):
         super(UnsupervisedMPNN, self).__init__()
 
         self.num_step_message_passing = num_step_message_passing
-        self.lin0 = nn.Linear(node_input_dim, node_hidden_dim)
+        self.lin0 = nn.Linear(positional_embedding_size + freq_embedding_size + 2, node_hidden_dim)
         edge_network = nn.Sequential(
-            nn.Linear(edge_input_dim, edge_hidden_dim), nn.ReLU(),
+            nn.Linear(freq_embedding_size + 1, edge_hidden_dim), nn.ReLU(),
             nn.Linear(edge_hidden_dim, node_hidden_dim * node_hidden_dim))
         self.conv = NNConv(in_feats=node_hidden_dim,
                            out_feats=node_hidden_dim,
@@ -60,12 +61,17 @@ class UnsupervisedMPNN(nn.Module):
         self.lin1 = nn.Linear(2 * node_hidden_dim, node_hidden_dim)
         self.lin2 = nn.Linear(node_hidden_dim, output_dim)
 
-        self.edge_input_class = edge_input_class
-        self.edge_input_embedding = nn.Embedding(
-                num_embeddings=edge_input_class,
-                embedding_dim=edge_input_dim)
+        self.max_node_freq = max_node_freq
+        self.max_edge_freq = max_edge_freq
 
-    def forward(self, g, n_feat, e_feat):
+        self.node_freq_embedding = nn.Embedding(
+                num_embeddings=max_node_freq+1,
+                embedding_dim=freq_embedding_size)
+        self.edge_freq_embedding = nn.Embedding(
+                num_embeddings=max_edge_freq+1,
+                embedding_dim=freq_embedding_size)
+
+    def forward(self, g):
         """Predict molecule labels
 
         Parameters
@@ -83,8 +89,27 @@ class UnsupervisedMPNN(nn.Module):
         -------
         res : Predicted labels
         """
-        e_feat = e_feat.clamp(0, self.edge_input_class-1)
-        e_feat = self.edge_input_embedding(e_feat)
+
+        nfreq = g.ndata['nfreq']
+        n_feat = torch.cat(
+                (
+                    g.ndata['pos_undirected'],
+                    g.ndata['pos_directed'],
+                    self.node_freq_embedding(nfreq.clamp(0, self.max_node_freq)),
+                    g.ndata['seed'].unsqueeze(1).float(),
+                    nfreq.unsqueeze(1).float() / self.max_node_freq
+                ),
+                dim=-1
+                )
+
+        efreq = g.edata['efreq']
+        e_feat = torch.cat(
+                (
+                    self.edge_freq_embedding(efreq.clamp(0, self.max_edge_freq)),
+                    efreq.unsqueeze(1).float() / self.max_edge_freq
+                ),
+                dim=-1
+                )
 
         out = F.relu(self.lin0(n_feat))                 # (B1, H1)
         h = out.unsqueeze(0)                            # (1, B1, H1)
@@ -105,8 +130,11 @@ if __name__ == "__main__":
     g = dgl.DGLGraph()
     g.add_nodes(3)
     g.add_edges([0, 0, 1], [1, 2, 2])
-    feat = torch.rand(3, 32)
-    efeat = torch.ones(3, dtype=torch.long)
-    y = model(g, feat, efeat)
+    g.ndata['pos_directed'] = torch.rand(3, 16)
+    g.ndata['pos_undirected'] = torch.rand(3, 16)
+    g.ndata['seed'] = torch.zeros(3, dtype=torch.long)
+    g.ndata['nfreq'] = torch.ones(3, dtype=torch.long)
+    g.edata['efreq'] = torch.ones(3, dtype=torch.long)
+    y = model(g)
     print(y.shape)
     print(y)
