@@ -15,7 +15,8 @@ import torch
 import dgl
 import numpy as np
 
-from graph_dataset import GraphDataset, CogDLGraphDataset, batcher
+from graph_dataset import GraphDataset, CogDLGraphDataset
+import data_util.batcher
 from models.gcn import UnsupervisedGCN
 from models.gat import UnsupervisedGAT
 from models.mpnn import UnsupervisedMPNN
@@ -319,7 +320,7 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-        collate_fn=batcher(),
+        collate_fn=data_util.batcher(),
         shuffle=True,
         num_workers=args.num_workers,
     )
