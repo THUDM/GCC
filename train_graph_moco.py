@@ -87,6 +87,10 @@ def parse_option():
     parser.add_argument("--subgraph-size", type=int, default=128)
     parser.add_argument("--restart-prob", type=float, default=0.6)
     parser.add_argument("--hidden-size", type=int, default=64)
+    parser.add_argument("--positional-embedding-size", type=int, default=32)
+    parser.add_argument("--max-node-freq", type=int, default=16)
+    parser.add_argument("--max-edge-freq", type=int, default=16)
+    parser.add_argument("--freq-embedding-size", type=int, default=16)
 
     # specify folder
     parser.add_argument("--model_path", type=str, default=None, help="path to save model")
@@ -186,29 +190,28 @@ def train_moco(
     loss_meter = AverageMeter()
     epoch_loss_meter = AverageMeter()
     prob_meter = AverageMeter()
+    graph_q_size = AverageMeter()
+    graph_k_size = AverageMeter()
 
     end = time.time()
     for idx, batch in enumerate(train_loader):
         data_time.update(time.time() - end)
         graph_q, graph_k = batch.graph_q, batch.graph_k
 
-        graph_q_feat = graph_q.ndata["x"].cuda(opt.gpu)
-        graph_k_feat = graph_k.ndata["x"].cuda(opt.gpu)
-
-        graph_q_efeat = graph_q.edata['efeat'].cuda(opt.gpu)
-        graph_k_efeat = graph_k.edata['efeat'].cuda(opt.gpu)
+        graph_q.to(torch.device(opt.gpu))
+        graph_k.to(torch.device(opt.gpu))
 
         bsz = graph_q.batch_size
 
         # ===================forward=====================
 
-        feat_q = model(graph_q, graph_q_feat, graph_q_efeat)
+        feat_q = model(graph_q)
         if opt.moco:
             with torch.no_grad():
-                feat_k = model_ema(graph_k, graph_k_feat, graph_k_efeat)
+                feat_k = model_ema(graph_k)
         else:
             # end-to-end by back-propagation (the two encoders can be different).
-            feat_k = model_ema(graph_k, graph_k_feat, graph_k_efeat)
+            feat_k = model_ema(graph_k)
 
         if opt.readout == "root":
             feat_q = feat_q[batch.graph_q_roots]
@@ -234,6 +237,8 @@ def train_moco(
         loss_meter.update(loss.item(), bsz)
         epoch_loss_meter.update(loss.item(), bsz)
         prob_meter.update(prob.item(), bsz)
+        graph_q_size.update(graph_q.number_of_nodes() / bsz, bsz)
+        graph_k_size.update(graph_k.number_of_nodes() / bsz, bsz)
 
         if opt.moco:
             moment_update(model, model_ema, opt.alpha)
@@ -285,6 +290,7 @@ def main(args):
     args = option_update(args)
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
+    assert args.positional_embedding_size % 2 == 0
 
     mem = psutil.virtual_memory()
     print("before construct dataset", mem.used/1024**3)
@@ -292,7 +298,7 @@ def main(args):
         train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
             restart_prob=args.restart_prob,
-            hidden_size=args.hidden_size,
+            positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
             num_samples=args.num_samples
         )
@@ -344,9 +350,10 @@ def main(args):
                 )
     elif args.model == "mpnn":
         model = UnsupervisedMPNN(
-                node_input_dim=args.hidden_size,
-                edge_input_class=8,
-                edge_input_dim=args.hidden_size,
+                positional_embedding_size=args.positional_embedding_size,
+                max_node_freq=args.max_node_freq,
+                max_edge_freq=args.max_edge_freq,
+                freq_embedding_size=args.freq_embedding_size,
                 output_dim=args.hidden_size,
                 node_hidden_dim=args.hidden_size,
                 edge_hidden_dim=args.hidden_size,
@@ -355,9 +362,10 @@ def main(args):
                 num_layer_set2set=args.set2set_lstm_layer
                 )
         model_ema = UnsupervisedMPNN(
-                node_input_dim=args.hidden_size,
-                edge_input_class=8,
-                edge_input_dim=args.hidden_size,
+                positional_embedding_size=args.positional_embedding_size,
+                max_node_freq=args.max_node_freq,
+                max_edge_freq=args.max_edge_freq,
+                freq_embedding_size=args.freq_embedding_size,
                 output_dim=args.hidden_size,
                 node_hidden_dim=args.hidden_size,
                 edge_hidden_dim=args.hidden_size,
@@ -365,7 +373,6 @@ def main(args):
                 num_step_set2set=args.set2set_iter,
                 num_layer_set2set=args.set2set_lstm_layer
                 )
-
     else:
         raise NotImplementedError("model not supported {}".format(args.model))
 
