@@ -210,8 +210,13 @@ class CogDLGraphDataset(GraphDataset):
         self.length = sum([g.number_of_nodes() for g in self.graphs])
 
 if __name__ == '__main__':
-    num_workers=2
+    num_workers=32
+    import psutil
+    mem = psutil.virtual_memory()
+    print(mem.used/1024**3)
     graph_dataset = LoadBalanceGraphDataset(num_workers=num_workers)
+    mem = psutil.virtual_memory()
+    print(mem.used/1024**3)
     graph_loader = torch.utils.data.DataLoader(
             graph_dataset,
             batch_size=20,
@@ -219,9 +224,14 @@ if __name__ == '__main__':
             num_workers=num_workers,
             worker_init_fn=work_init_fn
             )
+    mem = psutil.virtual_memory()
+    print(mem.used/1024**3)
     for step, batch in enumerate(graph_loader):
-        print(batch.graph_q)
-        break
+        print(batch.graph_q.batch_size)
+        mem = psutil.virtual_memory()
+        print(mem.used/1024**3)
+        if step > 5:
+            break
     exit(0)
     graph_dataset = CogDLGraphDataset(dataset="wikipedia")
     pq, pk = graph_dataset.getplot(0)
