@@ -92,26 +92,26 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
     return subg
 
 def eigen_decomposision(n, k, laplacian, hidden_size, retry):
+    if k <= 0:
+        return torch.zeros(n, hidden_size)
+
     for i in range(retry):
-        if k == n-1:
-            s, u = np.linalg.eig(laplacian)
-            u = u[:, :k].real
-            # TODO eigenvalues are not necessarily ordered
+        try:
+            s, u = linalg.eigsh(
+                    laplacian,
+                    k=k,
+                    which='LA',
+                    ncv=n)
+        except sparse.linalg.eigen.arpack.ArpackError:
+            print("arpack error, retry=", i)
+            if i + 1 == retry:
+                sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
+                u = torch.zeros(n, k)
         else:
-            try:
-                s, u = linalg.eigsh(
-                        laplacian,
-                        k=k,
-                        which='LA',
-                        ncv=n)
-            except sparse.linalg.eigen.arpack.ArpackError:
-                print("arpack error, retry=", i)
-                if i + 1 == retry:
-                    sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
-                    u = torch.ones(n, hidden_size)
-            else:
-                break
+            break
     x = preprocessing.normalize(u, norm='l2')
+    x = torch.from_numpy(x)
+    x = F.pad(x, (0, hidden_size-k), 'constant', 0)
     return x
 
 
@@ -128,7 +128,8 @@ def _add_directed_graph_positional_embedding(g, M, hidden_size, retry=10, alpha=
     P = alpha * M + (1 - alpha) / n
     if n == 2:
         evals, evecs = np.linalg.eig(P.T)
-        evecs = evecs[:, 0]
+        evals = evals.flatten().real
+        evecs = evecs[:, 0] if evals[0] > evals[1] else evecs[:, 1]
     else:
         evals, evecs = sparse.linalg.eigs(P.T, k=1, ncv=n)
     v = evecs.flatten().real
@@ -138,10 +139,8 @@ def _add_directed_graph_positional_embedding(g, M, hidden_size, retry=10, alpha=
     #  I = scipy.identity(n)
     #  laplacian = I - (Q + Q.T)/2.0
     laplacian = (Q + Q.T)/2.0
-    k=min(n-1, hidden_size)
+    k=min(n-2, hidden_size)
     x = eigen_decomposision(n, k, laplacian, hidden_size, retry)
-    x = torch.from_numpy(x)
-    x = F.pad(x, (0, hidden_size-k), 'constant', 0)
     g.ndata['pos_directed'] = x.float()
     return g
 
@@ -157,12 +156,8 @@ def _add_undirected_graph_positional_embedding(g, hidden_size, retry=10):
             dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -0.5,
             dtype=float)
     laplacian = norm * adj * norm
-    k=min(n-1, hidden_size)
-    if k == n-1:
-        laplacian = laplacian.todense()
+    k=min(n-2, hidden_size)
     x = eigen_decomposision(n, k, laplacian, hidden_size, retry)
-    x = torch.from_numpy(x)
-    x = F.pad(x, (0, hidden_size-k), 'constant', 0)
     g.ndata['pos_undirected'] = x.float()
     return g
 
