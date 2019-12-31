@@ -191,8 +191,7 @@ def train_moco(
     loss_meter = AverageMeter()
     epoch_loss_meter = AverageMeter()
     prob_meter = AverageMeter()
-    graph_q_size = AverageMeter()
-    graph_k_size = AverageMeter()
+    graph_size = AverageMeter()
 
     end = time.time()
     for idx, batch in enumerate(train_loader):
@@ -238,8 +237,7 @@ def train_moco(
         loss_meter.update(loss.item(), bsz)
         epoch_loss_meter.update(loss.item(), bsz)
         prob_meter.update(prob.item(), bsz)
-        graph_q_size.update(graph_q.number_of_nodes() / bsz, bsz)
-        graph_k_size.update(graph_k.number_of_nodes() / bsz, bsz)
+        graph_size.update((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz , 2*bsz)
 
         if opt.moco:
             moment_update(model, model_ema, opt.alpha)
@@ -259,7 +257,7 @@ def train_moco(
                 "DT {data_time.val:.3f} ({data_time.avg:.3f})\t"
                 "loss {loss.val:.3f} ({loss.avg:.3f})\t"
                 "prob {prob.val:.3f} ({prob.avg:.3f})\t"
-                "max output {out:.3f}\t"
+                "GS {graph_size.val:.3f} ({graph_size.avg:.3f})\t"
                 "mem {mem:.3f}".format(
                     epoch,
                     idx + 1,
@@ -268,7 +266,7 @@ def train_moco(
                     data_time=data_time,
                     loss=loss_meter,
                     prob=prob_meter,
-                    out=out[0].abs().max(),
+                    graph_size=graph_size,
                     mem=mem.used/1024**3
                 )
             )
@@ -279,11 +277,13 @@ def train_moco(
             global_step = epoch * n_batch + idx
             sw.add_scalar("moco_loss", loss_meter.avg, global_step)
             sw.add_scalar("moco_prob", prob_meter.avg, global_step)
+            sw.add_scalar("graph_size", graph_size.avg, global_step)
             #  sw.add_scalar(
             #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
             #  )
             loss_meter.reset()
             prob_meter.reset()
+            graph_size.reset()
     return epoch_loss_meter.avg
 
 # def main(args, trial):
