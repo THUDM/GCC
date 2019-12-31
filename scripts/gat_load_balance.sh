@@ -6,7 +6,7 @@ python train_graph_moco.py \
  --exp $DATE \
  --model_path /data/jiezhong/graph_moco/model_kdd17 \
  --tb_path tensorboard_kdd17 \
- --model mpnn \
+ --model gat \
  --softmax \
  --moco \
  --readout "set2set" \
