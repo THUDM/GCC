@@ -33,7 +33,8 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             step_dist=[1.0, 0.0, 0.0],
             num_workers=1,
             dgl_graphs_file="data_bin/dgl/graphs.bin",
-            num_samples=10000):
+            num_samples=10000,
+            num_copies=1):
         super(LoadBalanceGraphDataset).__init__()
         self.rw_hops = rw_hops
         self.restart_prob = restart_prob
@@ -51,14 +52,17 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         # a simple greedy algorithm for load balance
         # sorted graphs w.r.t its size in decreasing order
         # for each graph, assign it to the worker with least workload
-        jobs = [list() for i in range(num_workers)]
-        workloads = [0] * num_workers
+        assert num_workers % num_copies == 0
+        jobs = [list() for i in range(num_workers // num_copies)]
+        workloads = [0] * (num_workers // num_copies)
         graph_sizes = sorted(enumerate(graph_sizes), key=operator.itemgetter(1), reverse=True)
+        # Drop top 2 largest graphs
+        # graph_sizes = graph_sizes[2:]
         for idx, size in graph_sizes:
             argmin = workloads.index(min(workloads))
             workloads[argmin] += size
             jobs[argmin].append(idx)
-        self.jobs = jobs
+        self.jobs = jobs * num_copies
         self.total = self.num_samples * num_workers
 
     def __iter__(self):

@@ -41,6 +41,7 @@ def parse_option():
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
     parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
     parser.add_argument("--num_workers", type=int, default=32, help="num of workers to use")
+    parser.add_argument("--num_copies", type=int, default=1, help="num of dataset copies that fit in memory")
     parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
 
@@ -300,7 +301,8 @@ def main(args):
             restart_prob=args.restart_prob,
             positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
-            num_samples=args.num_samples
+            num_samples=args.num_samples,
+            num_copies=args.num_copies
         )
     else:
         train_dataset = CogDLGraphDataset(

@@ -16,7 +16,8 @@ python train_graph_moco.py \
  --num-layer 6 \
  --set2set-lstm-layer 1 \
  --set2set-iter 6 \
- --num_workers 32 \
+ --num_workers 48 \
+ --num_replica_per_worker 4 \
  --batch_size 32 \
  --learning_rate 0.005 \
  --num-samples 10000 \
