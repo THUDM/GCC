@@ -39,6 +39,7 @@ def parse_option():
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
     parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
     parser.add_argument("--num_workers", type=int, default=32, help="num of workers to use")
+    parser.add_argument("--num_copies", type=int, default=1, help="num of dataset copies that fit in memory")
     parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
 
@@ -118,7 +119,7 @@ def parse_option():
 
 
 def option_update(opt):
-    prefix = "Grpah_MoCo{}".format(opt.alpha)
+    prefix = "GMoCo{}".format(opt.alpha)
     opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
         opt.exp,
@@ -298,7 +299,8 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
             num_samples=args.num_samples,
-            dgl_graphs_file="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin"
+            dgl_graphs_file="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
+            num_copies=args.num_copies
         )
     else:
         train_dataset = CogDLGraphDataset(
