@@ -33,16 +33,18 @@ def test_moco(train_loader, model, opt):
 
     emb_list = []
     for idx, batch in enumerate(train_loader):
-        graph_q = batch.graph_q
+        graph_q, graph_k = batch.graph_q, batch.graph_k
         bsz = graph_q.batch_size
-        graph_q_feat = graph_q.ndata["x"].cuda(opt.gpu)
-        graph_q_efeat = graph_q.edata['efeat'].cuda(opt.gpu)
+        graph_q.to(torch.device(opt.gpu))
+        graph_k.to(torch.device(opt.gpu))
 
         with torch.no_grad():
-            feat_q = model(graph_q, graph_q_feat, graph_q_efeat)
+            feat_q = model(graph_q)
+            feat_k = model(graph_k)
 
         assert feat_q.shape == (bsz, opt.hidden_size)
-        emb_list.append(feat_q.detach().cpu())
+        # emb_list.append(feat_q.detach().cpu())
+        emb_list.append(((feat_q + feat_k) / 2).detach().cpu())
     return torch.cat(emb_list)
 
 def main(args):
@@ -64,7 +66,7 @@ def main(args):
             rw_hops=args.rw_hops,
             subgraph_size=args.subgraph_size,
             restart_prob=args.restart_prob,
-            hidden_size=args.hidden_size,
+            positional_embedding_size=args.positional_embedding_size,
         )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -91,9 +93,10 @@ def main(args):
                 )
     elif args.model == "mpnn":
         model = UnsupervisedMPNN(
-                node_input_dim=args.hidden_size,
-                edge_input_class=8,
-                edge_input_dim=args.hidden_size,
+                positional_embedding_size=args.positional_embedding_size,
+                max_node_freq=args.max_node_freq,
+                max_edge_freq=args.max_edge_freq,
+                freq_embedding_size=args.freq_embedding_size,
                 output_dim=args.hidden_size,
                 node_hidden_dim=args.hidden_size,
                 edge_hidden_dim=args.hidden_size,
@@ -108,7 +111,7 @@ def main(args):
 
     # optionally resume from a checkpoint
     args.start_epoch = 1
-    model_path = os.path.join(args.model_folder, "current.pth")
+    model_path = os.path.join(args.model_folder, "ckpt_epoch_30.pth")
     if os.path.isfile(model_path):
         print("=> loading checkpoint '{}'".format(model_path))
         checkpoint = torch.load(model_path, map_location="cpu")

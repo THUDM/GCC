@@ -310,7 +310,7 @@ def main(args):
             rw_hops=args.rw_hops,
             subgraph_size=args.subgraph_size,
             restart_prob=args.restart_prob,
-            hidden_size=args.hidden_size,
+            positional_embedding_size=args.positional_embedding_size,
         )
     print("setting random seeds")
     dgl.random.seed(args.seed)
