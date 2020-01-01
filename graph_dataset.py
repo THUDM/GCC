@@ -113,15 +113,15 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         return graph_q, graph_k
 
 class GraphDataset(torch.utils.data.Dataset):
-    def __init__(self, rw_hops=64, subgraph_size=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0]):
+    def __init__(self, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
         super(GraphDataset).__init__()
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
-        self.hidden_size = hidden_size
+        self.positional_embedding_size = positional_embedding_size
         self.step_dist = step_dist
         assert sum(step_dist) == 1.0
-        assert(hidden_size > 1)
+        assert(positional_embedding_size  > 1)
         #  graphs = []
         graphs, _ = dgl.data.utils.load_graphs("data_bin/dgl/lscc_graphs.bin", [0, 1, 2])
         for name in ["cs", "physics"]:
@@ -188,23 +188,23 @@ class GraphDataset(torch.utils.data.Dataset):
                 g=self.graphs[graph_idx],
                 seed=node_idx,
                 trace=traces[0],
-                hidden_size=self.hidden_size)
+                positional_embedding_size=self.positional_embedding_size)
         graph_k = data_util._rwr_trace_to_dgl_graph(
                 g=self.graphs[graph_idx],
                 seed=other_node_idx,
                 trace=traces[1],
-                hidden_size=self.hidden_size)
+                positional_embedding_size=self.positional_embedding_size)
         return graph_q, graph_k
 
 
 class CogDLGraphDataset(GraphDataset):
-    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, hidden_size=32, step_dist=[1.0, 0.0, 0.0]):
+    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
-        self.hidden_size = hidden_size
+        self.positional_embedding_size = positional_embedding_size
         self.step_dist = step_dist
-        assert(hidden_size > 1)
+        assert(positional_embedding_size > 1)
 
         class tmp():
             # HACK
