@@ -32,7 +32,7 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             positional_embedding_size=32,
             step_dist=[1.0, 0.0, 0.0],
             num_workers=1,
-            dgl_graphs_file="data_bin/dgl/graphs.bin",
+            dgl_graphs_file="data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs2.bin",
             num_samples=10000,
             num_copies=1):
         super(LoadBalanceGraphDataset).__init__()
@@ -44,10 +44,8 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         assert sum(step_dist) == 1.0
         assert(positional_embedding_size > 1)
         self.dgl_graphs_file = dgl_graphs_file
-        graphs, _ = dgl.data.utils.load_graphs(dgl_graphs_file)
+        graph_sizes = dgl.data.utils.load_labels(dgl_graphs_file)['graph_sizes'].tolist()
         print("load graph done")
-        graph_sizes = [g.number_of_nodes() for g in graphs]
-        del graphs
 
         # a simple greedy algorithm for load balance
         # sorted graphs w.r.t its size in decreasing order
