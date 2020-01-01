@@ -8,6 +8,7 @@
 import dgl
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import models.mpnn as mpnn
 import models.gat as gat
 from dgl.nn.pytorch import Set2Set
@@ -48,6 +49,7 @@ class GraphEncoder(nn.Module):
                  num_heads=4,
                  num_step_set2set=6,
                  num_layer_set2set=3,
+                 norm=False,
                  gnn_model="mpnn"):
         super(GraphEncoder, self).__init__()
 
@@ -86,6 +88,7 @@ class GraphEncoder(nn.Module):
                 nn.Linear(2 * node_hidden_dim, node_hidden_dim),
                 nn.ReLU(),
                 nn.Linear(node_hidden_dim, output_dim))
+        self.norm = norm
     def forward(self, g):
         """Predict molecule labels
 
@@ -128,6 +131,8 @@ class GraphEncoder(nn.Module):
         x = self.gnn(g, n_feat, e_feat)
         x = self.set2set(g, x)
         x = self.lin_readout(x)
+        if self.norm:
+            x = F.normalize(x, p=2, dim=-1)
         return x
 
 if __name__ == "__main__":
