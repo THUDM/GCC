@@ -13,10 +13,11 @@ import numpy as np
 import tensorboard_logger as tb_logger
 import torch
 
-from graph_dataset import CogDLGraphDataset, GraphDataset
 from data_util import batcher
+from graph_dataset import CogDLGraphDataset, GraphDataset
 from models.gat import UnsupervisedGAT
 from models.gcn import UnsupervisedGCN
+from models.graph_encoder import GraphEncoder
 from models.mpnn import UnsupervisedMPNN
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
@@ -47,13 +48,32 @@ def test_moco(train_loader, model, opt):
         emb_list.append(((feat_q + feat_k) / 2).detach().cpu())
     return torch.cat(emb_list)
 
+
 def main(args):
-    args = option_update(args)
+    parser = argparse.ArgumentParser("argument for training")
+    # fmt: off
+    parser.add_argument("--load-path", type=str, help="path to load model")
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde"])
+    parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
+    # fmt: on
+    args_test = parser.parse_args()
 
-    assert args.gpu is not None and torch.cuda.is_available()
-    print("Use GPU: {} for training".format(args.gpu))
+    if os.path.isfile(args_test.load_path):
+        print("=> loading checkpoint '{}'".format(args_test.load_path))
+        checkpoint = torch.load(args_test.load_path, map_location="cpu")
+        print(
+            "=> loaded successfully '{}' (epoch {})".format(
+                args_test.load_path, checkpoint["epoch"]
+            )
+        )
+    else:
+        print("=> no checkpoint found at '{}'".format(args_test.load_path))
+    args = checkpoint["opt"]
 
-    if args.dataset == "dgl":
+    assert args_test.gpu is not None and torch.cuda.is_available()
+    print("Use GPU: {} for training".format(args_test.gpu))
+
+    if args_test.dataset == "dgl":
         train_dataset = GraphDataset(
             rw_hops=args.rw_hops,
             subgraph_size=args.subgraph_size,
@@ -62,7 +82,7 @@ def main(args):
         )
     else:
         train_dataset = CogDLGraphDataset(
-            dataset=args.dataset,
+            dataset=args_test.dataset,
             rw_hops=args.rw_hops,
             subgraph_size=args.subgraph_size,
             restart_prob=args.restart_prob,
@@ -79,56 +99,31 @@ def main(args):
     # create model and optimizer
     n_data = len(train_dataset)
 
-    if args.model == "gcn":
-        model = UnsupervisedGCN(
-            hidden_size=args.hidden_size,
-            num_layer=args.num_layer,
-            readout=args.readout,
-            layernorm=args.layernorm,
-        )
-    elif args.model == "gat":
-        model = UnsupervisedGAT(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
-                set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter
-                )
-    elif args.model == "mpnn":
-        model = UnsupervisedMPNN(
-                positional_embedding_size=args.positional_embedding_size,
-                max_node_freq=args.max_node_freq,
-                max_edge_freq=args.max_edge_freq,
-                freq_embedding_size=args.freq_embedding_size,
-                output_dim=args.hidden_size,
-                node_hidden_dim=args.hidden_size,
-                edge_hidden_dim=args.hidden_size,
-                num_step_message_passing=args.num_layer,
-                num_step_set2set=args.set2set_iter,
-                num_layer_set2set=args.set2set_lstm_layer
-                )
-    else:
-        raise NotImplementedError("model not supported {}".format(args.model))
+    model = GraphEncoder(
+        positional_embedding_size=args.positional_embedding_size,
+        max_node_freq=args.max_node_freq,
+        max_edge_freq=args.max_edge_freq,
+        freq_embedding_size=args.freq_embedding_size,
+        output_dim=args.hidden_size,
+        node_hidden_dim=args.hidden_size,
+        edge_hidden_dim=args.hidden_size,
+        num_layers=args.num_layer,
+        num_step_set2set=args.set2set_iter,
+        num_layer_set2set=args.set2set_lstm_layer,
+        gnn_model=args.model,
+    )
 
-    model = model.cuda(args.gpu)
+    model = model.cuda(args_test.gpu)
 
-    # optionally resume from a checkpoint
-    args.start_epoch = 1
-    model_path = os.path.join(args.model_folder, "current.pth")
-    if os.path.isfile(model_path):
-        print("=> loading checkpoint '{}'".format(model_path))
-        checkpoint = torch.load(model_path, map_location="cpu")
-        model.load_state_dict(checkpoint["model"])
+    model.load_state_dict(checkpoint["model"])
 
-        print(
-            "=> loaded successfully '{}' (epoch {})".format(
-                model_path, checkpoint["epoch"]
-            )
-        )
-        del checkpoint
-        torch.cuda.empty_cache()
+    del checkpoint
+    torch.cuda.empty_cache()
 
-        emb = test_moco(train_loader, model, args)
-        np.save(os.path.join(args.model_path, args.dataset), emb.numpy())
-    else:
-        print("=> no checkpoint found at '{}'".format(model_path))
+    args.gpu = args_test.gpu
+    emb = test_moco(train_loader, model, args)
+    np.save(os.path.join(args.model_path, args_test.dataset), emb.numpy())
+
 
 if __name__ == "__main__":
     args = parse_option()
