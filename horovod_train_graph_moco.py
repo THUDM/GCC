@@ -3,7 +3,7 @@
 # File Name: horovod_train_graph_moco.py
 # Author: Jiezhong Qiu
 # Create Time: 2020/01/01 23:59
-# TODO:
+# TODO: add horovod training
 
 import torch
 import argparse
