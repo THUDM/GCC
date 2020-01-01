@@ -17,6 +17,9 @@ import dgl.data
 from cogdl.datasets import build_dataset
 import data_util
 
+import horovod.torch as hvd
+
+
 def worker_init_fn(worker_id):
     worker_info = torch.utils.data.get_worker_info()
     dataset = worker_info.dataset
@@ -25,7 +28,8 @@ def worker_init_fn(worker_id):
             dataset.jobs[worker_id]
             )
     dataset.length = sum([g.number_of_nodes() for g in dataset.graphs])
-    print(worker_id, dataset.length)
+    np.random.seed((worker_info.seed % (2 ** 32) + hvd.rank()) % (2 ** 32))
+    print("hvd.rank=%d, hvd.local_rank=%d, worker_id=%d, dataset.length=%d" % (hvd.rank(), hvd.local_rank(), worker_id, dataset.length))
 
 class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
     def __init__(self, rw_hops=64, restart_prob=0.8,
@@ -64,12 +68,13 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         self.total = self.num_samples * num_workers
 
     def __iter__(self):
-        samples = torch.randint(low=0, high=self.length,
-                size=(self.num_samples, ), dtype=torch.long).tolist()
+        samples = np.random.randint(low=0, high=self.length, size=self.num_samples)
         for idx in samples:
             yield self.__getitem__(idx)
 
     def __getitem__(self, idx):
+        worker_info = torch.utils.data.get_worker_info()
+        print("hvd.rank=%d, hvd.local_rank=%d, worker_id=%d, seed=%d, idx=%d" % (hvd.rank(), hvd.local_rank(), worker_info.id, worker_info.seed, idx))
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):
@@ -222,6 +227,7 @@ class CogDLGraphDataset(GraphDataset):
         self.length = sum([g.number_of_nodes() for g in self.graphs])
 
 if __name__ == '__main__':
+    hvd.init()
     num_workers=1
     import psutil
     mem = psutil.virtual_memory()
