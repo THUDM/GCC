@@ -74,7 +74,7 @@ def parse_option():
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
     parser.add_argument("--set2set-lstm-layer", type=int, default=3, help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
-    parser.add_argument("--layernorm", action="store_true", help="apply layernorm on output feats")
+    parser.add_argument("--norm", action="store_true", help="apply 2-norm on output feats")
 
     # loss function
     parser.add_argument("--softmax", action="store_true", help="using softmax contrastive loss rather than NCE")
@@ -120,7 +120,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "GMoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -137,7 +137,7 @@ def option_update(opt):
         opt.rw_hops,
         opt.restart_prob,
         opt.optimizer,
-        opt.layernorm,
+        opt.norm,
         opt.set2set_lstm_layer,
         opt.set2set_iter
     )
@@ -286,6 +286,7 @@ def train_moco(
 # def main(args, trial):
 def main(args):
     args = option_update(args)
+    print(args)
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
     assert args.positional_embedding_size % 2 == 0
@@ -343,6 +344,7 @@ def main(args):
             num_layers=args.num_layer,
             num_step_set2set=args.set2set_iter,
             num_layer_set2set=args.set2set_lstm_layer,
+            norm=args.norm,
             gnn_model=args.model
             )
     model_ema = GraphEncoder(
@@ -356,6 +358,7 @@ def main(args):
             num_layers=args.num_layer,
             num_step_set2set=args.set2set_iter,
             num_layer_set2set=args.set2set_lstm_layer,
+            norm=args.norm,
             gnn_model=args.model
             )
 
