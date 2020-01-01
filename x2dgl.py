@@ -13,6 +13,7 @@ import scipy.sparse as sp
 import argparse
 import pathlib
 import logging
+import torch
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
@@ -65,13 +66,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
-    #  graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
-    #          and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
-    #          and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
-    #          and graph_file.suffix == '.lscc']
     graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
             and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
-            and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1]
+            and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
+            and graph_file.suffix == '.lscc']
     for name in ["cs", "physics"]:
         g = Coauthor(name)[0]
         g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
@@ -83,7 +81,12 @@ if __name__ == "__main__":
         g.readonly()
         graphs.append(g)
     graphs.sort(key=lambda g: g.number_of_nodes(), reverse=True)
+    graph_sizes = torch.LongTensor([g.number_of_nodes() for g in graphs])
     for i, g in enumerate(graphs):
         print(i, g.number_of_nodes())
     logger.info("save graphs to %s", args.save_file)
-    save_graphs(args.save_file, graphs)
+    save_graphs(
+            filename=args.save_file,
+            g_list=graphs,
+            labels={"graph_sizes": graph_sizes}
+            )
