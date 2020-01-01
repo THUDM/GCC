@@ -57,7 +57,7 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         workloads = [0] * (num_workers // num_copies)
         graph_sizes = sorted(enumerate(graph_sizes), key=operator.itemgetter(1), reverse=True)
         # Drop top 2 largest graphs
-        graph_sizes = graph_sizes[2:]
+        # graph_sizes = graph_sizes[2:]
         for idx, size in graph_sizes:
             argmin = workloads.index(min(workloads))
             workloads[argmin] += size

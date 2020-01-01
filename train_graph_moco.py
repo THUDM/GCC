@@ -17,9 +17,7 @@ import numpy as np
 
 from graph_dataset import GraphDataset, CogDLGraphDataset, LoadBalanceGraphDataset, worker_init_fn
 import data_util
-from models.gcn import UnsupervisedGCN
-from models.gat import UnsupervisedGAT
-from models.mpnn import UnsupervisedMPNN
+from models.graph_encoder import GraphEncoder
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import AverageMeter, adjust_learning_rate
@@ -70,7 +68,7 @@ def parse_option():
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde"])
 
     # model definition
-    parser.add_argument("--model", type=str, default="gcn", choices=["gcn", "gat", "mpnn"])
+    parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn"])
     # other possible choices: ggnn, mpnn, graphsage ...
     parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
@@ -121,21 +119,20 @@ def parse_option():
 
 
 def option_update(opt):
-    prefix = "Graph_MoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_moco_{}_nce_t{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    prefix = "GMoCo{}".format(opt.alpha)
+    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_layernorm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
         opt.method,
-        opt.nce_k,
         opt.model,
         opt.num_layer,
         opt.learning_rate,
         opt.weight_decay,
         opt.batch_size,
         opt.num_samples,
-        opt.moco,
         opt.nce_t,
+        opt.nce_k,
         opt.readout,
         opt.rw_hops,
         opt.restart_prob,
@@ -302,6 +299,7 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
             num_samples=args.num_samples,
+            dgl_graphs_file="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
             num_copies=args.num_copies
         )
     else:
@@ -334,49 +332,32 @@ def main(args):
     # create model and optimizer
     n_data = train_dataset.total
 
-    if args.model == "gcn":
-        model = UnsupervisedGCN(hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
-                set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter)
-        model_ema = UnsupervisedGCN(
-            hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
-                set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter
-        )
-    elif args.model == "gat":
-        model = UnsupervisedGAT(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
-                set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter
-                )
-        model_ema = UnsupervisedGAT(
-                hidden_size=args.hidden_size, num_layer=args.num_layer, readout=args.readout, layernorm=args.layernorm,
-                set2set_lstm_layer=args.set2set_lstm_layer, set2set_iter=args.set2set_iter
-                )
-    elif args.model == "mpnn":
-        model = UnsupervisedMPNN(
-                positional_embedding_size=args.positional_embedding_size,
-                max_node_freq=args.max_node_freq,
-                max_edge_freq=args.max_edge_freq,
-                freq_embedding_size=args.freq_embedding_size,
-                output_dim=args.hidden_size,
-                node_hidden_dim=args.hidden_size,
-                edge_hidden_dim=args.hidden_size,
-                num_step_message_passing=args.num_layer,
-                num_step_set2set=args.set2set_iter,
-                num_layer_set2set=args.set2set_lstm_layer
-                )
-        model_ema = UnsupervisedMPNN(
-                positional_embedding_size=args.positional_embedding_size,
-                max_node_freq=args.max_node_freq,
-                max_edge_freq=args.max_edge_freq,
-                freq_embedding_size=args.freq_embedding_size,
-                output_dim=args.hidden_size,
-                node_hidden_dim=args.hidden_size,
-                edge_hidden_dim=args.hidden_size,
-                num_step_message_passing=args.num_layer,
-                num_step_set2set=args.set2set_iter,
-                num_layer_set2set=args.set2set_lstm_layer
-                )
-    else:
-        raise NotImplementedError("model not supported {}".format(args.model))
+    model = GraphEncoder(
+            positional_embedding_size=args.positional_embedding_size,
+            max_node_freq=args.max_node_freq,
+            max_edge_freq=args.max_edge_freq,
+            freq_embedding_size=args.freq_embedding_size,
+            output_dim=args.hidden_size,
+            node_hidden_dim=args.hidden_size,
+            edge_hidden_dim=args.hidden_size,
+            num_layers=args.num_layer,
+            num_step_set2set=args.set2set_iter,
+            num_layer_set2set=args.set2set_lstm_layer,
+            gnn_model=args.model
+            )
+    model_ema = GraphEncoder(
+            positional_embedding_size=args.positional_embedding_size,
+            max_node_freq=args.max_node_freq,
+            max_edge_freq=args.max_edge_freq,
+            freq_embedding_size=args.freq_embedding_size,
+            output_dim=args.hidden_size,
+            node_hidden_dim=args.hidden_size,
+            edge_hidden_dim=args.hidden_size,
+            num_layers=args.num_layer,
+            num_step_set2set=args.set2set_iter,
+            num_layer_set2set=args.set2set_lstm_layer,
+            gnn_model=args.model
+            )
 
     # copy weights from `model' to `model_ema'
     if args.moco:

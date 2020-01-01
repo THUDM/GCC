@@ -8,21 +8,12 @@ python x2dgl.py --graph-dir data_bin/kdd17 --save-file data_bin/dgl/graphs.bin
 ## Install CogDL
 
 ```bash
-git clone https://github.com/qibinc/cogdl.git
-git checkout moco
+git submodule init
+git submodule update
+cd cogdl
 pip install -e .
-```
-
-## Export embeddings
-
-```bash
-# Modify test_gat.sh
-bash scripts/test_gat.sh
 ```
 
 ## Use CogDL
 
-```bash
-cd /path/to/cogdl
-python scripts/train.py --task unsupervised_node_classification --dataset blogcatalog --model prone from_numpy --hidden-size 64 --seed 0 --emb-path /path/to/saved/current.pt.npy
-```
+See `test_node_classification.sh` and `test_matching.sh`

@@ -8,6 +8,7 @@
 import re
 import dgl
 from dgl.data.utils import save_graphs
+from dgl.data import AmazonCoBuy, Coauthor
 import scipy.sparse as sp
 import argparse
 import pathlib
@@ -59,13 +60,30 @@ def yuxiao_kdd17_graph_to_dgl(file):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("argument for x2dgl")
-    parser.add_argument("--graph-dir", type=str, default=None, help="dir to load graphs")
-    parser.add_argument("--save-file", type=str, default=None, help="file to save graphs")
+    parser.add_argument("--graph-dir", type=str, required=True, help="dir to load graphs")
+    parser.add_argument("--save-file", type=str, required=True, help="file to save graphs")
 
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
-    #  g = yuxiao_kdd17_graph_to_dgl("data_bin/ca-GrQc-SNAP.txtu.lpm.lscc")
-    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 and graph_file.suffix == '.lscc']
-    #  graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1]
+    #  graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
+    #          and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
+    #          and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
+    #          and graph_file.suffix == '.lscc']
+    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
+            and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
+            and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1]
+    for name in ["cs", "physics"]:
+        g = Coauthor(name)[0]
+        g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
+        g.readonly()
+        graphs.append(g)
+    for name in ["computers", "photo"]:
+        g = AmazonCoBuy(name)[0]
+        g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
+        g.readonly()
+        graphs.append(g)
+    graphs.sort(key=lambda g: g.number_of_nodes(), reverse=True)
+    for i, g in enumerate(graphs):
+        print(i, g.number_of_nodes())
     logger.info("save graphs to %s", args.save_file)
     save_graphs(args.save_file, graphs)

@@ -6,7 +6,7 @@ python train_graph_moco.py \
  --exp $DATE \
  --model_path /data/jiezhong/graph_moco/model_kdd17 \
  --tb_path tensorboard_kdd17 \
- --model mpnn \
+ --model gat \
  --softmax \
  --moco \
  --readout "set2set" \
@@ -19,8 +19,7 @@ python train_graph_moco.py \
  --num-layer 6 \
  --set2set-lstm-layer 1 \
  --set2set-iter 6 \
- --num_workers 48 \
- --num_copies 4 \
+ --num_workers 32 \
  --batch_size 32 \
  --learning_rate 0.005 \
  --num-samples 10000 \

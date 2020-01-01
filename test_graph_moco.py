@@ -111,7 +111,7 @@ def main(args):
 
     # optionally resume from a checkpoint
     args.start_epoch = 1
-    model_path = os.path.join(args.model_folder, "ckpt_epoch_30.pth")
+    model_path = os.path.join(args.model_folder, "current.pth")
     if os.path.isfile(model_path):
         print("=> loading checkpoint '{}'".format(model_path))
         checkpoint = torch.load(model_path, map_location="cpu")
