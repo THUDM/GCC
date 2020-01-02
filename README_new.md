@@ -17,3 +17,15 @@ pip install -e .
 ## Use CogDL
 
 See `test_node_classification.sh` and `test_matching.sh`
+
+
+## horovod
+
+Install horovod with 
+```
+pip install horovod
+```
+
+```
+horovodrun -np 4 -H localhost:4 python horovod_train_graph_moco.py --softmax --norm --moco
+```
