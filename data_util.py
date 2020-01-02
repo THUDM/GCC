@@ -16,23 +16,30 @@ import sklearn.preprocessing as preprocessing
 import torch.nn.functional as F
 import dgl
 import matplotlib.pyplot as plt
-from itertools import accumulate
-
-class GraphBatcher:
-    def __init__(self, graph_q, graph_k, graph_q_roots, graph_k_roots):
-        self.graph_q = graph_q
-        self.graph_k = graph_k
-        self.graph_q_roots = graph_q_roots
-        self.graph_k_roots = graph_k_roots
 
 def batcher():
     def batcher_dev(batch):
         graph_q, graph_k = zip(*batch)
-        graph_q_roots = list(accumulate([0] + [len(graph) for graph in graph_q[:-1]]))
-        graph_k_roots = list(accumulate([0] + [len(graph) for graph in graph_k[:-1]]))
         graph_q, graph_k = dgl.batch(graph_q), dgl.batch(graph_k)
-        return GraphBatcher(graph_q, graph_k, graph_q_roots, graph_k_roots)
+        return graph_q, graph_k
     return batcher_dev
+
+class dynamic_batcher(object):
+    def __init__(self, max_node_per_batch):
+        self.max_node_per_batch = max_node_per_batch
+
+    def __call__(self, batch):
+        # TODO make it more elegant with itertool?
+        graph_q, graph_k = zip(*batch)
+        accum = 0
+        for i in range(len(graph_q)):
+            accum += graph_q[i].number_of_nodes() + graph_k[i].number_of_nodes()
+            if accum > self.max_node_per_batch:
+                graph_q = graph_q[:i]
+                graph_k = graph_k[:i]
+                break
+        graph_q, graph_k = dgl.batch(graph_q), dgl.batch(graph_k)
+        return graph_q, graph_k
 
 def plot_to_image(figure):
 	"""Converts the matplotlib plot specified by 'figure' to a PNG image and

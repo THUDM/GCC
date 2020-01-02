@@ -67,14 +67,17 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         self.jobs = jobs * num_copies
         self.total = self.num_samples * num_workers
 
+    def __len__(self):
+        return self.num_samples * num_workers
+
     def __iter__(self):
         samples = np.random.randint(low=0, high=self.length, size=self.num_samples)
         for idx in samples:
             yield self.__getitem__(idx)
 
     def __getitem__(self, idx):
-        worker_info = torch.utils.data.get_worker_info()
-        print("hvd.rank=%d, hvd.local_rank=%d, worker_id=%d, seed=%d, idx=%d" % (hvd.rank(), hvd.local_rank(), worker_info.id, worker_info.seed, idx))
+        #  worker_info = torch.utils.data.get_worker_info()
+        #  print("hvd.rank=%d, hvd.local_rank=%d, worker_id=%d, seed=%d, idx=%d" % (hvd.rank(), hvd.local_rank(), worker_info.id, worker_info.seed, idx))
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):

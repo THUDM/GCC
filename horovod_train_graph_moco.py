@@ -19,7 +19,7 @@ import data_util
 from models.graph_encoder import GraphEncoder
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
-from util import AverageMeter, adjust_learning_rate
+from util import HorovodAverageMeter
 import psutil
 import warnings
 
@@ -29,13 +29,18 @@ def parse_option():
     parser = argparse.ArgumentParser("argument for training")
 
     parser.add_argument("--print_freq", type=int, default=10, help="print frequency")
-    parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
+    #  parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
+    parser.add_argument("--tb_freq", type=int, default=1, help="tb frequency")
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
-    parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
-    parser.add_argument("--num_workers", type=int, default=32, help="num of workers to use")
+    parser.add_argument("--batch_size", type=int, default=16, help="batch_size")
+    parser.add_argument("--max-node-per-batch", type=int, default=1024, help="dynamic batching")
+    parser.add_argument("--num_workers", type=int, default=16, help="num of workers to use")
     parser.add_argument("--num_copies", type=int, default=1, help="num of dataset copies that fit in memory")
     parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
+    parser.add_argument("--dgl-graphs-file", type=str,
+            default="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
+            help="dgl graphs to pretrain")
 
     # optimization
     parser.add_argument("--optimizer", type=str, default='sgd', choices=['sgd', 'adam', 'adagrad'], help="optimizer")
@@ -53,16 +58,14 @@ def parse_option():
     # augmentation setting
     parser.add_argument("--aug", type=str, default="1st", choices=["1st", "2nd", "all"])
 
-    parser.add_argument("--amp", action="store_true", help="using mixed precision")
-    parser.add_argument("--opt_level", type=str, default="O2", choices=["O1", "O2"])
 
-    parser.add_argument("--exp", type=str, default="")
+    parser.add_argument("--exp", type=str, default="horovod")
 
     # dataset definition
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde"])
 
     # model definition
-    parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn"])
+    parser.add_argument("--model", type=str, default="mpnn", choices=["gat", "mpnn"])
     # other possible choices: ggnn, mpnn, graphsage ...
     parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
@@ -76,18 +79,18 @@ def parse_option():
     parser.add_argument("--nce_t", type=float, default=100)
 
     # random walk
-    parser.add_argument("--rw-hops", type=int, default=2048)
+    parser.add_argument("--rw-hops", type=int, default=256)
     parser.add_argument("--subgraph-size", type=int, default=128)
-    parser.add_argument("--restart-prob", type=float, default=0.6)
-    parser.add_argument("--hidden-size", type=int, default=64)
+    parser.add_argument("--restart-prob", type=float, default=0.9)
+    parser.add_argument("--hidden-size", type=int, default=128)
     parser.add_argument("--positional-embedding-size", type=int, default=32)
     parser.add_argument("--max-node-freq", type=int, default=16)
     parser.add_argument("--max-edge-freq", type=int, default=16)
     parser.add_argument("--freq-embedding-size", type=int, default=16)
 
     # specify folder
-    parser.add_argument("--model_path", type=str, default=None, help="path to save model")
-    parser.add_argument("--tb_path", type=str, default=None, help="path to tensorboard")
+    parser.add_argument("--model_path", type=str, default="/data/jiezhong/graph_moco/model_kdd17", help="path to save model")
+    parser.add_argument("--tb_path", type=str, default="./tensorboard_kdd17", help="path to tensorboard")
     parser.add_argument("--load-path", type=str, default=None, help="loading checkpoint at test time")
 
     # memory setting
@@ -148,21 +151,21 @@ def option_update(opt):
         opt.set2set_iter
     )
 
-    if opt.amp:
-        opt.model_name = "{}_amp_{}".format(opt.model_name, opt.opt_level)
-
     opt.model_name = "{}_aug_{}".format(opt.model_name, opt.aug)
 
-    if opt.load_path is None:
-        opt.model_folder = os.path.join(opt.model_path, opt.model_name)
-        if not os.path.isdir(opt.model_folder):
-            os.makedirs(opt.model_folder)
-    else:
-        opt.model_folder = opt.load_path
+    opt.verbose = 1 if hvd.rank() == 0 else 0
 
-    opt.tb_folder = os.path.join(opt.tb_path, opt.model_name)
-    if not os.path.isdir(opt.tb_folder):
-        os.makedirs(opt.tb_folder)
+    if opt.verbose:
+        if opt.load_path is None:
+            opt.model_folder = os.path.join(opt.model_path, opt.model_name)
+            if not os.path.isdir(opt.model_folder):
+                os.makedirs(opt.model_folder)
+        else:
+            opt.model_folder = opt.load_path
+
+        opt.tb_folder = os.path.join(opt.tb_path, opt.model_name)
+        if not os.path.isdir(opt.tb_folder):
+            os.makedirs(opt.tb_folder)
     return opt
 
 
@@ -181,33 +184,22 @@ def train_moco(
     n_batch = train_loader.dataset.total // opt.batch_size
     model.train()
     model_ema.eval()
+    device = torch.device(torch.cuda.current_device())
 
-    def set_bn_train(m):
-        classname = m.__class__.__name__
-        if classname.find("BatchNorm") != -1:
-            m.train()
+    loss_meter = HorovodAverageMeter("moco_loss")
+    prob_meter = HorovodAverageMeter('moco_prob')
+    graph_size = HorovodAverageMeter("graph_size")
+    batch_size = HorovodAverageMeter("batch_size")
 
-    model_ema.apply(set_bn_train)
-
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    loss_meter = AverageMeter()
-    epoch_loss_meter = AverageMeter()
-    prob_meter = AverageMeter()
-    graph_size = AverageMeter()
-
-    end = time.time()
     for idx, batch in enumerate(train_loader):
-        data_time.update(time.time() - end)
-        graph_q, graph_k = batch.graph_q, batch.graph_k
+        graph_q, graph_k = batch
 
-        graph_q.to(torch.device(opt.gpu))
-        graph_k.to(torch.device(opt.gpu))
+        graph_q.to(device)
+        graph_k.to(device)
 
         bsz = graph_q.batch_size
 
         # ===================forward=====================
-
         feat_q = model(graph_q)
         if opt.moco:
             with torch.no_grad():
@@ -215,12 +207,6 @@ def train_moco(
         else:
             # end-to-end by back-propagation (the two encoders can be different).
             feat_k = model_ema(graph_k)
-
-        if opt.readout == "root":
-            feat_q = feat_q[batch.graph_q_roots]
-            feat_k = feat_k[batch.graph_k_roots]
-
-        assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
 
         out = contrast(feat_q, feat_k)
 
@@ -233,72 +219,43 @@ def train_moco(
         optimizer.step()
 
         # ===================meters=====================
-        loss_meter.update(loss.item(), bsz)
-        epoch_loss_meter.update(loss.item(), bsz)
-        prob_meter.update(prob.item(), bsz)
-        graph_size.update((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz , 2*bsz)
+        loss_meter.update(loss)
+        prob_meter.update(prob)
+        graph_size.update(
+                torch.tensor((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz)
+                )
+        batch_size.update(
+                torch.tensor(float(bsz))
+                )
 
         if opt.moco:
             moment_update(model, model_ema, opt.alpha)
 
-        torch.cuda.synchronize()
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        # print info
-        if (idx + 1) % opt.print_freq == 0:
-            mem = psutil.virtual_memory()
-            #  print(f'{idx:8} - {mem.percent:5} - {mem.free/1024**3:10.2f} - {mem.available/1024**3:10.2f} - {mem.used/1024**3:10.2f}')
-            #  mem_used.append(mem.used/1024**3)
-            print(
-                "Train: [{0}][{1}/{2}]\t"
-                "BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                "DT {data_time.val:.3f} ({data_time.avg:.3f})\t"
-                "loss {loss.val:.3f} ({loss.avg:.3f})\t"
-                "prob {prob.val:.3f} ({prob.avg:.3f})\t"
-                "GS {graph_size.val:.3f} ({graph_size.avg:.3f})\t"
-                "mem {mem:.3f}".format(
-                    epoch,
-                    idx + 1,
-                    n_batch,
-                    batch_time=batch_time,
-                    data_time=data_time,
-                    loss=loss_meter,
-                    prob=prob_meter,
-                    graph_size=graph_size,
-                    mem=mem.used/1024**3
-                )
-            )
-            #  print(out[0].abs().max())
 
         # tensorboard logger
-        if (idx + 1) % opt.tb_freq == 0:
+        if sw and (idx + 1) % opt.tb_freq == 0:
             global_step = epoch * n_batch + idx
             sw.add_scalar("moco_loss", loss_meter.avg, global_step)
             sw.add_scalar("moco_prob", prob_meter.avg, global_step)
             sw.add_scalar("graph_size", graph_size.avg, global_step)
-            #  sw.add_scalar(
-            #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
-            #  )
+            sw.add_scalar("batch_size", batch_size.avg, global_step)
             loss_meter.reset()
             prob_meter.reset()
             graph_size.reset()
-    return epoch_loss_meter.avg
+            batch_size.reset()
 
-# def main(args, trial):
 def main(args):
     hvd.init()
     args = option_update(args)
-    print(args)
+    if args.verbose:
+        print(args)
 
-    print("setting random seeds")
     dgl.random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.set_device(hvd.local_rank())
     cudnn.benchmark = True
-    args.verbose = 1 if hvd.rank() == 0 else 0
 
     # Horovod: write TensorBoard logs on first worker.
     sw = SummaryWriter(args.tb_folder) if hvd.rank() == 0 else None
@@ -306,8 +263,9 @@ def main(args):
     # Horovod: limit # of CPU threads to be used per worker.
     torch.set_num_threads(args.num_workers + 1) # do we need +1?
 
-    mem = psutil.virtual_memory()
-    print("before construct dataset", mem.used/1024**3)
+    if args.verbose:
+        mem = psutil.virtual_memory()
+        print("before construct dataset", mem.used/1024**3)
     if args.dataset == "dgl":
         train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
@@ -315,7 +273,7 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
             num_samples=args.num_samples,
-            dgl_graphs_file="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
+            dgl_graphs_file=args.dgl_graphs_file,
             num_copies=1,
         )
     else:
@@ -327,18 +285,20 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
         )
 
-    mem = psutil.virtual_memory()
-    print("before construct dataloader", mem.used/1024**3)
+    if args.verbose:
+        mem = psutil.virtual_memory()
+        print("before construct dataloader", mem.used/1024**3)
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-        collate_fn=data_util.batcher(),
+        collate_fn=data_util.dynamic_batcher(args.max_node_per_batch),
         #  shuffle=True,
         num_workers=args.num_workers,
         worker_init_fn=worker_init_fn
     )
-    mem = psutil.virtual_memory()
-    print("before training", mem.used/1024**3)
+    if args.verbose:
+        mem = psutil.virtual_memory()
+        print("before training", mem.used/1024**3)
 
     # create model and optimizer
     n_data = train_dataset.total
@@ -388,14 +348,7 @@ def main(args):
     model = model.cuda()
     model_ema = model_ema.cuda()
 
-    # By default, Adasum doesn't need scaling up learning rate.
-    # For sum/average with gradient Accumulation: scale learning rate by batches_per_allreduce
-    lr_scaler = args.batches_per_allreduce * hvd.size() if not args.use_adasum else 1
-    # If using GPU Adasum allreduce, scale learning rate by local_size.
-    if args.use_adasum and hvd.nccl_built():
-        lr_scaler = args.batches_per_allreduce * hvd.local_size()
-
-
+    lr_scaler = args.batches_per_allreduce * hvd.size()
     if args.optimizer == 'sgd':
         optimizer = torch.optim.SGD(
             model.parameters(),
@@ -427,8 +380,8 @@ def main(args):
     optimizer = hvd.DistributedOptimizer(
         optimizer, named_parameters=model.named_parameters(),
         compression=compression,
-        backward_passes_per_step=args.batches_per_allreduce,
-        op=hvd.Adasum if args.use_adasum else hvd.Average)
+        backward_passes_per_step=args.batches_per_allreduce
+        )
 
     # Horovod: broadcast parameters & optimizer state.
     hvd.broadcast_parameters(model.state_dict(), root_rank=0)
@@ -436,10 +389,12 @@ def main(args):
     hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
     # routine
-    for epoch in range(args.start_epoch, args.epochs + 1):
+    for epoch in range(1, args.epochs + 1):
 
-        adjust_learning_rate(epoch, args, optimizer)
-        print("==> training...")
+        #  adjust_learning_rate(epoch, args, optimizer)
+
+        if args.verbose:
+            print("==> training...")
 
         time1 = time.time()
         loss = train_moco(
@@ -454,10 +409,11 @@ def main(args):
             args
         )
         time2 = time.time()
-        print("epoch {}, total time {:.2f}".format(epoch, time2 - time1))
+        if args.verbose:
+            print("epoch {}, total time {:.2f}".format(epoch, time2 - time1))
 
         # save model
-        if epoch % args.save_freq == 0:
+        if args.verbose and epoch % args.save_freq == 0:
             print("==> Saving...")
             state = {
                 "opt": args,
@@ -497,10 +453,6 @@ def main(args):
         del state
         torch.cuda.empty_cache()
 
-        # if (epoch + 1) % 5 == 0:
-        #     trial.report(loss, epoch)
-        #     if trial.should_prune():
-        #         raise optuna.exceptions.TrialPruned()
 
     return loss
 
@@ -511,13 +463,4 @@ if __name__ == "__main__":
     args = parse_option()
 
     main(args)
-    # import optuna
-    # def objective(trial):
-    #     args.epochs = 30
-    #     args.learning_rate = trial.suggest_loguniform('learning_rate', 1e-3, 1e-2)
-    #     args.weight_decay = trial.suggest_loguniform('weight_decay', 1e-5, 1e-3)
-    #     args.alpha = 1 - trial.suggest_loguniform('alpha', 1e-4, 1e-2)
-    #     return main(args, trial)
 
-    #, work_init_fn study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
-    # study.optimize(objective, n_trials=20)

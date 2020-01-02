@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import torch
 import numpy as np
+import horovod.torch as hvd
 
 
 def adjust_learning_rate(epoch, opt, optimizer):
@@ -11,6 +12,24 @@ def adjust_learning_rate(epoch, opt, optimizer):
         new_lr = opt.learning_rate * (opt.lr_decay_rate ** steps)
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
+
+# Horovod: average metrics from distributed training.
+class HorovodAverageMeter(object):
+    def __init__(self, name):
+        self.name = name
+        self.sum = torch.tensor(0.)
+        self.n = torch.tensor(0.)
+
+    def update(self, val):
+        self.sum += hvd.allreduce(val.detach().cpu(), name=self.name)
+        self.n += 1
+
+    @property
+    def avg(self):
+        return self.sum / self.n
+    def reset(self):
+        self.sum = torch.tensor(0.)
+        self.n = torch.tensor(0.)
 
 
 class AverageMeter(object):
