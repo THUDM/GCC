@@ -29,7 +29,7 @@ def worker_init_fn(worker_id):
             )
     dataset.length = sum([g.number_of_nodes() for g in dataset.graphs])
     np.random.seed((worker_info.seed % (2 ** 32) + hvd.rank()) % (2 ** 32))
-    print("hvd.rank=%d, hvd.local_rank=%d, worker_id=%d, dataset.length=%d" % (hvd.rank(), hvd.local_rank(), worker_id, dataset.length))
+    #  print("hvd.rank=%d, hvd.local_rank=%d, worker_id=%d, dataset.length=%d" % (hvd.rank(), hvd.local_rank(), worker_id, dataset.length))
 
 class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
     def __init__(self, rw_hops=64, restart_prob=0.8,
