@@ -22,6 +22,7 @@ from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import HorovodAverageMeter
 import psutil
 import warnings
+from tqdm import tqdm
 
 def parse_option():
 
@@ -29,8 +30,7 @@ def parse_option():
     parser = argparse.ArgumentParser("argument for training")
 
     parser.add_argument("--print_freq", type=int, default=10, help="print frequency")
-    #  parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
-    parser.add_argument("--tb_freq", type=int, default=10, help="tb frequency")
+    parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
     parser.add_argument("--batch_size", type=int, default=8, help="batch_size")
     parser.add_argument("--max-node-per-batch", type=int, default=1024, help="dynamic batching")
@@ -43,7 +43,7 @@ def parse_option():
             help="dgl graphs to pretrain")
 
     # optimization
-    parser.add_argument("--optimizer", type=str, default='sgd', choices=['sgd', 'adam', 'adagrad'], help="optimizer")
+    parser.add_argument("--optimizer", type=str, default='adam', choices=['sgd', 'adam', 'adagrad'], help="optimizer")
     parser.add_argument("--learning_rate", type=float, default=0.005, help="learning rate")
     parser.add_argument("--lr_decay_epochs", type=str, default="120,160,200", help="where to decay lr, can be a list")
     parser.add_argument("--lr_decay_rate", type=float, default=0.0, help="decay rate for learning rate")
@@ -155,7 +155,7 @@ def option_update(opt):
 
     opt.verbose = 1 if hvd.rank() == 0 else 0
 
-    if opt.verbose:
+    if hvd.rank() == 0:
         if opt.load_path is None:
             opt.model_folder = os.path.join(opt.model_path, opt.model_name)
             if not os.path.isdir(opt.model_folder):
@@ -191,58 +191,68 @@ def train_moco(
     graph_size = HorovodAverageMeter("graph_size")
     batch_size = HorovodAverageMeter("batch_size")
 
-    for idx, batch in enumerate(train_loader):
-        graph_q, graph_k = batch
+    with tqdm(total=n_batch,
+            desc='Train Epoch     #{}'.format(epoch + 1),
+            disable=not opt.verbose,
+            ascii=True) as t:
+        for idx, batch in enumerate(train_loader):
+            graph_q, graph_k = batch
+            graph_q.to(device)
+            graph_k.to(device)
 
-        graph_q.to(device)
-        graph_k.to(device)
+            bsz = graph_q.batch_size
 
-        bsz = graph_q.batch_size
-
-        # ===================forward=====================
-        feat_q = model(graph_q)
-        if opt.moco:
-            with torch.no_grad():
+            # ===================forward=====================
+            feat_q = model(graph_q)
+            if opt.moco:
+                with torch.no_grad():
+                    feat_k = model_ema(graph_k)
+            else:
+                # end-to-end by back-propagation (the two encoders can be different).
                 feat_k = model_ema(graph_k)
-        else:
-            # end-to-end by back-propagation (the two encoders can be different).
-            feat_k = model_ema(graph_k)
 
-        out = contrast(feat_q, feat_k)
+            out = contrast(feat_q, feat_k)
 
-        loss = criterion(out)
-        prob = out[:, 0].mean()
+            loss = criterion(out)
+            prob = out[:, 0].mean()
 
-        # ===================backward=====================
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            # ===================backward=====================
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            # ===================meters=====================
+            loss_meter.update(loss)
+            prob_meter.update(prob)
+            graph_size.update(
+                    torch.tensor((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz)
+                    )
+            batch_size.update(
+                    torch.tensor(float(bsz))
+                    )
 
-        # ===================meters=====================
-        loss_meter.update(loss)
-        prob_meter.update(prob)
-        graph_size.update(
-                torch.tensor((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz)
+            if opt.moco:
+                moment_update(model, model_ema, opt.alpha)
+            # ===================tqdm=====================
+            t.set_postfix({
+                'loss': loss_meter.avg.item(),
+                'prob': prob_meter.avg.item(),
+                'gsz': graph_size.avg.item(),
+                'bsz': batch_size.avg.item()
+                }
                 )
-        batch_size.update(
-                torch.tensor(float(bsz))
-                )
+            t.update(1)
 
-        if opt.moco:
-            moment_update(model, model_ema, opt.alpha)
-
-
-        # tensorboard logger
-        if sw and (idx + 1) % opt.tb_freq == 0:
-            global_step = epoch * n_batch + idx
-            sw.add_scalar("moco_loss", loss_meter.avg, global_step)
-            sw.add_scalar("moco_prob", prob_meter.avg, global_step)
-            sw.add_scalar("graph_size", graph_size.avg, global_step)
-            sw.add_scalar("batch_size", batch_size.avg, global_step)
-            loss_meter.reset()
-            prob_meter.reset()
-            graph_size.reset()
-            batch_size.reset()
+            # tensorboard logger
+            if sw and (idx + 1) % opt.tb_freq == 0:
+                global_step = epoch * n_batch + idx
+                sw.add_scalar("moco_loss", loss_meter.avg, global_step)
+                sw.add_scalar("moco_prob", prob_meter.avg, global_step)
+                sw.add_scalar("graph_size", graph_size.avg, global_step)
+                sw.add_scalar("batch_size", batch_size.avg, global_step)
+                loss_meter.reset()
+                prob_meter.reset()
+                graph_size.reset()
+                batch_size.reset()
 
 def main(args):
     hvd.init()
@@ -389,9 +399,7 @@ def main(args):
     hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
     # routine
-    for epoch in range(1, args.epochs + 1):
-
-        #  adjust_learning_rate(epoch, args, optimizer)
+    for epoch in range(args.epochs):
 
         if args.verbose:
             print("==> training...")
@@ -413,7 +421,7 @@ def main(args):
             print("epoch {}, total time {:.2f}".format(epoch, time2 - time1))
 
         # save model
-        if args.verbose and epoch % args.save_freq == 0:
+        if hvd.rank() == 0 and epoch % args.save_freq == 0:
             print("==> Saving...")
             state = {
                 "opt": args,
@@ -430,28 +438,7 @@ def main(args):
             torch.save(state, save_file)
             # help release GPU memory
             del state
-
-        # saving the model
-        print("==> Saving...")
-        state = {
-            "opt": args,
-            "model": model.state_dict(),
-            "contrast": contrast.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "epoch": epoch,
-        }
-        if args.moco:
-            state["model_ema"] = model_ema.state_dict()
-        save_file = os.path.join(args.model_folder, "current.pth")
-        torch.save(state, save_file)
-        if epoch % args.save_freq == 0:
-            save_file = os.path.join(
-                args.model_folder, "ckpt_epoch_{epoch}.pth".format(epoch=epoch)
-            )
-            torch.save(state, save_file)
-        # help release GPU memory
-        del state
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
 
 
     return loss
