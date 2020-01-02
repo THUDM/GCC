@@ -30,9 +30,9 @@ def parse_option():
 
     parser.add_argument("--print_freq", type=int, default=10, help="print frequency")
     #  parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
-    parser.add_argument("--tb_freq", type=int, default=1, help="tb frequency")
+    parser.add_argument("--tb_freq", type=int, default=10, help="tb frequency")
     parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
-    parser.add_argument("--batch_size", type=int, default=16, help="batch_size")
+    parser.add_argument("--batch_size", type=int, default=8, help="batch_size")
     parser.add_argument("--max-node-per-batch", type=int, default=1024, help="dynamic batching")
     parser.add_argument("--num_workers", type=int, default=16, help="num of workers to use")
     parser.add_argument("--num_copies", type=int, default=1, help="num of dataset copies that fit in memory")
@@ -67,22 +67,22 @@ def parse_option():
     # model definition
     parser.add_argument("--model", type=str, default="mpnn", choices=["gat", "mpnn"])
     # other possible choices: ggnn, mpnn, graphsage ...
-    parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
-    parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
-    parser.add_argument("--set2set-lstm-layer", type=int, default=3, help="lstm layers for s2s")
+    parser.add_argument("--num-layer", type=int, default=6, help="gnn layers")
+    parser.add_argument("--readout", type=str, default="set2set", choices=["root", "avg", "set2set"])
+    parser.add_argument("--set2set-lstm-layer", type=int, default=1, help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
     parser.add_argument("--norm", action="store_true", help="apply 2-norm on output feats")
 
     # loss function
     parser.add_argument("--softmax", action="store_true", help="using softmax contrastive loss rather than NCE")
     parser.add_argument("--nce_k", type=int, default=16384)
-    parser.add_argument("--nce_t", type=float, default=100)
+    parser.add_argument("--nce_t", type=float, default=0.07)
 
     # random walk
-    parser.add_argument("--rw-hops", type=int, default=256)
+    parser.add_argument("--rw-hops", type=int, default=128)
     parser.add_argument("--subgraph-size", type=int, default=128)
     parser.add_argument("--restart-prob", type=float, default=0.9)
-    parser.add_argument("--hidden-size", type=int, default=128)
+    parser.add_argument("--hidden-size", type=int, default=64)
     parser.add_argument("--positional-embedding-size", type=int, default=32)
     parser.add_argument("--max-node-freq", type=int, default=16)
     parser.add_argument("--max-edge-freq", type=int, default=16)
