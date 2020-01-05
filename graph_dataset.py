@@ -17,10 +17,18 @@ import dgl.data
 from cogdl.datasets import build_dataset
 import data_util
 
-import horovod.torch as hvd
-
 
 def worker_init_fn(worker_id):
+    worker_info = torch.utils.data.get_worker_info()
+    dataset = worker_info.dataset
+    dataset.graphs, _ = dgl.data.utils.load_graphs(
+            dataset.dgl_graphs_file,
+            dataset.jobs[worker_id]
+            )
+    dataset.length = sum([g.number_of_nodes() for g in dataset.graphs])
+    np.random.seed(worker_info.seed % (2 ** 32))
+
+def hvd_worker_init_fn(worker_id):
     worker_info = torch.utils.data.get_worker_info()
     dataset = worker_info.dataset
     dataset.graphs, _ = dgl.data.utils.load_graphs(
@@ -230,6 +238,7 @@ class CogDLGraphDataset(GraphDataset):
         self.length = sum([g.number_of_nodes() for g in self.graphs])
 
 if __name__ == '__main__':
+    import horovod.torch as hvd
     hvd.init()
     num_workers=1
     import psutil

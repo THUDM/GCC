@@ -57,6 +57,29 @@ def plot_to_image(figure):
 	image = tf.expand_dims(image, 0)
 	return torch.from_numpy(image.numpy())
 
+def _edge_subgraph(trace, seed):
+    mapping = dict()
+    edge_list = set()
+    mapping[seed] = 0
+    for walk in trace:
+        u = seed
+        for v in walk.tolist():
+            if (u, v) not in edge_list:
+                if u not in mapping:
+                    mapping[u] = len(mapping)
+                if v not in mapping:
+                    mapping[v] = len(mapping)
+                edge_list.add((u, v))
+            u = v
+    subg = dgl.DGLGraph()
+    subg.add_nodes(len(mapping))
+    u_list, v_list = [], []
+    for u, v in edge_list:
+        u_list.append(mapping[u])
+        v_list.append(mapping[v])
+    subg.add_edges(u_list, v_list)
+    return subg
+
 def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
     subv = torch.unique(torch.cat(trace)).tolist()
     try:
