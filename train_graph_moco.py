@@ -189,11 +189,13 @@ def train_moco(
     epoch_loss_meter = AverageMeter()
     prob_meter = AverageMeter()
     graph_size = AverageMeter()
+    max_num_nodes = 0
+    max_num_edges = 0
 
     end = time.time()
     for idx, batch in enumerate(train_loader):
         data_time.update(time.time() - end)
-        graph_q, graph_k = batch.graph_q, batch.graph_k
+        graph_q, graph_k = batch
 
         graph_q.to(torch.device(opt.gpu))
         graph_k.to(torch.device(opt.gpu))
@@ -228,6 +230,7 @@ def train_moco(
                 scaled_loss.backward()
         else:
             loss.backward()
+        torch.nn.utils.clip_grad_value_(model.parameters(), 1)
         optimizer.step()
 
         # ===================meters=====================
@@ -235,6 +238,8 @@ def train_moco(
         epoch_loss_meter.update(loss.item(), bsz)
         prob_meter.update(prob.item(), bsz)
         graph_size.update((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz , 2*bsz)
+        max_num_nodes = max(max_num_nodes, graph_q.number_of_nodes())
+        max_num_edges = max(max_num_edges, graph_q.number_of_edges())
 
         if opt.moco:
             moment_update(model, model_ema, opt.alpha)
@@ -275,12 +280,15 @@ def train_moco(
             sw.add_scalar("moco_loss", loss_meter.avg, global_step)
             sw.add_scalar("moco_prob", prob_meter.avg, global_step)
             sw.add_scalar("graph_size", graph_size.avg, global_step)
+            sw.add_scalar("graph_size/max", max_num_nodes, global_step)
+            sw.add_scalar("graph_size/max_edges", max_num_edges, global_step)
             #  sw.add_scalar(
             #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
             #  )
             loss_meter.reset()
             prob_meter.reset()
             graph_size.reset()
+            max_num_nodes, max_num_edges = 0, 0
     return epoch_loss_meter.avg
 
 # def main(args, trial):
