@@ -8,26 +8,31 @@
 import argparse
 import os
 import time
+import warnings
 
-#  import tensorboard_logger as tb_logger
-from torch.utils.tensorboard import SummaryWriter
-import torch
 import dgl
 import numpy as np
+import psutil
+import torch
+import torch.nn as nn
+from sklearn.metrics import accuracy_score, f1_score
+#  import tensorboard_logger as tb_logger
+from torch.utils.tensorboard import SummaryWriter
 
-from graph_dataset import GraphDataset, CogDLGraphDataset, LoadBalanceGraphDataset, worker_init_fn
 import data_util
+from graph_dataset import (CogDLGraphDataset, CogDLGraphDatasetLabeled,
+                           GraphDataset, LoadBalanceGraphDataset,
+                           worker_init_fn)
 from models.graph_encoder import GraphEncoder
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import AverageMeter, adjust_learning_rate
-import psutil
-import warnings
 
 try:
     from apex import amp, optimizers
 except ImportError:
     pass
+
 
 def parse_option():
 
@@ -98,13 +103,14 @@ def parse_option():
 
     # memory setting
     parser.add_argument("--moco", action="store_true", help="using MoCo (otherwise Instance Discrimination)")
+    parser.add_argument("--finetune", action="store_true")
 
     parser.add_argument("--alpha", type=float, default=0.999, help="exponential moving average weight")
 
     # GPU setting
     parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
+    parser.add_argument("--seed", type=int, default=42, help="random seed.")
     # fmt: on
-    parser.add_argument('--seed', type=int, default=42, help='random seed.')
 
     opt = parser.parse_args()
 
@@ -120,7 +126,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "GMoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}_finetune_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -139,7 +145,8 @@ def option_update(opt):
         opt.optimizer,
         opt.norm,
         opt.set2set_lstm_layer,
-        opt.set2set_iter
+        opt.set2set_iter,
+        opt.finetune,
     )
 
     if opt.amp:
@@ -164,6 +171,160 @@ def moment_update(model, model_ema, m):
     """ model_ema = m * model_ema + (1 - m) model """
     for p1, p2 in zip(model.parameters(), model_ema.parameters()):
         p2.data.mul_(m).add_(1 - m, p1.detach().data)
+
+
+def train_finetune(
+    epoch, train_loader, model, output_layer, criterion, optimizer, output_layer_optimizer, sw, opt
+):
+    """
+    one epoch training for moco
+    """
+    n_batch = len(train_loader)
+    model.train()
+
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    loss_meter = AverageMeter()
+    f1_meter = AverageMeter()
+    epoch_loss_meter = AverageMeter()
+    epoch_f1_meter = AverageMeter()
+    prob_meter = AverageMeter()
+    graph_size = AverageMeter()
+    max_num_nodes = 0
+    max_num_edges = 0
+
+    end = time.time()
+    for idx, batch in enumerate(train_loader):
+        data_time.update(time.time() - end)
+        graph_q, y = batch
+
+        graph_q.to(torch.device(opt.gpu))
+        y = y.to(torch.device(opt.gpu))
+
+        bsz = graph_q.batch_size
+
+        # ===================forward=====================
+
+        feat_q = model(graph_q)
+
+        assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
+        out = output_layer(feat_q)
+
+        loss = criterion(out, y)
+
+        # ===================backward=====================
+        optimizer.zero_grad()
+        output_layer_optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_value_(model.parameters(), 1)
+        optimizer.step()
+        output_layer_optimizer.step()
+
+        preds = out.argmax(dim=1)
+        f1 = f1_score(y.cpu().numpy(), preds.cpu().numpy(), average="micro")
+
+        # ===================meters=====================
+        f1_meter.update(f1, bsz)
+        epoch_f1_meter.update(f1, bsz)
+        loss_meter.update(loss.item(), bsz)
+        epoch_loss_meter.update(loss.item(), bsz)
+        graph_size.update(graph_q.number_of_nodes() / bsz, bsz)
+        max_num_nodes = max(max_num_nodes, graph_q.number_of_nodes())
+        max_num_edges = max(max_num_edges, graph_q.number_of_edges())
+
+        torch.cuda.synchronize()
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        # print info
+        if (idx + 1) % opt.print_freq == 0:
+            mem = psutil.virtual_memory()
+            #  print(f'{idx:8} - {mem.percent:5} - {mem.free/1024**3:10.2f} - {mem.available/1024**3:10.2f} - {mem.used/1024**3:10.2f}')
+            #  mem_used.append(mem.used/1024**3)
+            print(
+                "Train: [{0}][{1}/{2}]\t"
+                "BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
+                "DT {data_time.val:.3f} ({data_time.avg:.3f})\t"
+                "loss {loss.val:.3f} ({loss.avg:.3f})\t"
+                "f1 {f1.val:.3f} ({f1.avg:.3f})\t"
+                "GS {graph_size.val:.3f} ({graph_size.avg:.3f})\t"
+                "mem {mem:.3f}".format(
+                    epoch,
+                    idx + 1,
+                    n_batch,
+                    batch_time=batch_time,
+                    data_time=data_time,
+                    loss=loss_meter,
+                    f1=f1_meter,
+                    graph_size=graph_size,
+                    mem=mem.used / 1024 ** 3,
+                )
+            )
+            #  print(out[0].abs().max())
+
+        # tensorboard logger
+        if (idx + 1) % opt.tb_freq == 0:
+            global_step = epoch * n_batch + idx
+            sw.add_scalar("moco_loss", loss_meter.avg, global_step)
+            sw.add_scalar("moco_f1", f1_meter.avg, global_step)
+            sw.add_scalar("graph_size", graph_size.avg, global_step)
+            sw.add_scalar("graph_size/max", max_num_nodes, global_step)
+            sw.add_scalar("graph_size/max_edges", max_num_edges, global_step)
+            #  sw.add_scalar(
+            #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
+            #  )
+            loss_meter.reset()
+            f1_meter.reset()
+            graph_size.reset()
+            max_num_nodes, max_num_edges = 0, 0
+    return epoch_loss_meter.avg, epoch_f1_meter.avg
+
+
+def test_finetune(
+    epoch, valid_loader, model, output_layer, criterion, sw, opt
+):
+    n_batch = len(valid_loader)
+    model.eval()
+
+    loss_meter = AverageMeter()
+    epoch_loss_meter = AverageMeter()
+    f1_meter = AverageMeter()
+    epoch_f1_meter = AverageMeter()
+
+    for idx, batch in enumerate(valid_loader):
+        graph_q, y = batch
+
+        graph_q.to(torch.device(opt.gpu))
+        y = y.to(torch.device(opt.gpu))
+
+        bsz = graph_q.batch_size
+
+        # ===================forward=====================
+
+        with torch.no_grad():
+            feat_q = model(graph_q)
+
+        assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
+        out = output_layer(feat_q)
+        loss = criterion(out, y)
+
+        preds = out.argmax(dim=1)
+        f1 = f1_score(y.cpu().numpy(), preds.cpu().numpy(), average="micro")
+
+        # ===================meters=====================
+        loss_meter.update(loss.item(), bsz)
+        epoch_loss_meter.update(loss.item(), bsz)
+        f1_meter.update(f1, bsz)
+        epoch_f1_meter.update(f1, bsz)
+        if (idx + 1) % opt.tb_freq == 0:
+            global_step = epoch * n_batch + idx
+            sw.add_scalar("moco_loss/valid", loss_meter.avg, global_step)
+            sw.add_scalar("moco_f1/valid", f1_meter.avg, global_step)
+            loss_meter.reset()
+            f1_meter.reset()
+
+    print(f"Epoch {epoch}, loss {epoch_loss_meter.avg:.3f}, f1 {epoch_f1_meter.avg:.3f}")
+    return epoch_loss_meter.avg, epoch_f1_meter.avg
 
 
 def train_moco(
@@ -237,7 +398,9 @@ def train_moco(
         loss_meter.update(loss.item(), bsz)
         epoch_loss_meter.update(loss.item(), bsz)
         prob_meter.update(prob.item(), bsz)
-        graph_size.update((graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz , 2*bsz)
+        graph_size.update(
+            (graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz, 2 * bsz
+        )
         max_num_nodes = max(max_num_nodes, graph_q.number_of_nodes())
         max_num_edges = max(max_num_edges, graph_q.number_of_edges())
 
@@ -269,7 +432,7 @@ def train_moco(
                     loss=loss_meter,
                     prob=prob_meter,
                     graph_size=graph_size,
-                    mem=mem.used/1024**3
+                    mem=mem.used / 1024 ** 3,
                 )
             )
             #  print(out[0].abs().max())
@@ -291,6 +454,7 @@ def train_moco(
             max_num_nodes, max_num_edges = 0, 0
     return epoch_loss_meter.avg
 
+
 # def main(args, trial):
 def main(args):
     args = option_update(args)
@@ -300,8 +464,17 @@ def main(args):
     assert args.positional_embedding_size % 2 == 0
 
     mem = psutil.virtual_memory()
-    print("before construct dataset", mem.used/1024**3)
-    if args.dataset == "dgl":
+    print("before construct dataset", mem.used / 1024 ** 3)
+    if args.finetune:
+        dataset = CogDLGraphDatasetLabeled(
+            dataset=args.dataset,
+            rw_hops=args.rw_hops,
+            subgraph_size=args.subgraph_size,
+            restart_prob=args.restart_prob,
+            positional_embedding_size=args.positional_embedding_size,
+        )
+        train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [int(0.8 * len(dataset)), len(dataset) - int(0.8 * len(dataset))])
+    elif args.dataset == "dgl":
         train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
             restart_prob=args.restart_prob,
@@ -309,7 +482,7 @@ def main(args):
             num_workers=args.num_workers,
             num_samples=args.num_samples,
             dgl_graphs_file="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
-            num_copies=args.num_copies
+            num_copies=args.num_copies,
         )
     else:
         train_dataset = CogDLGraphDataset(
@@ -326,49 +499,57 @@ def main(args):
     torch.cuda.manual_seed(args.seed)
 
     mem = psutil.virtual_memory()
-    print("before construct dataloader", mem.used/1024**3)
+    print("before construct dataloader", mem.used / 1024 ** 3)
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-        collate_fn=data_util.batcher(),
-        #  shuffle=True,
+        collate_fn=data_util.labeled_batcher() if args.finetune else data_util.batcher(),
+        shuffle=True if args.finetune else False,
         num_workers=args.num_workers,
-        worker_init_fn=worker_init_fn
+        worker_init_fn=None if args.finetune else worker_init_fn,
     )
+    if args.finetune:
+        valid_loader = torch.utils.data.DataLoader(
+            dataset=valid_dataset,
+            batch_size=args.batch_size,
+            collate_fn=data_util.labeled_batcher(),
+            num_workers=args.num_workers,
+        )
     mem = psutil.virtual_memory()
-    print("before training", mem.used/1024**3)
+    print("before training", mem.used / 1024 ** 3)
 
     # create model and optimizer
-    n_data = train_dataset.total
+    # n_data = train_dataset.total
+    n_data = None
 
     model = GraphEncoder(
-            positional_embedding_size=args.positional_embedding_size,
-            max_node_freq=args.max_node_freq,
-            max_edge_freq=args.max_edge_freq,
-            freq_embedding_size=args.freq_embedding_size,
-            output_dim=args.hidden_size,
-            node_hidden_dim=args.hidden_size,
-            edge_hidden_dim=args.hidden_size,
-            num_layers=args.num_layer,
-            num_step_set2set=args.set2set_iter,
-            num_layer_set2set=args.set2set_lstm_layer,
-            norm=args.norm,
-            gnn_model=args.model
-            )
+        positional_embedding_size=args.positional_embedding_size,
+        max_node_freq=args.max_node_freq,
+        max_edge_freq=args.max_edge_freq,
+        freq_embedding_size=args.freq_embedding_size,
+        output_dim=args.hidden_size,
+        node_hidden_dim=args.hidden_size,
+        edge_hidden_dim=args.hidden_size,
+        num_layers=args.num_layer,
+        num_step_set2set=args.set2set_iter,
+        num_layer_set2set=args.set2set_lstm_layer,
+        norm=args.norm,
+        gnn_model=args.model,
+    )
     model_ema = GraphEncoder(
-            positional_embedding_size=args.positional_embedding_size,
-            max_node_freq=args.max_node_freq,
-            max_edge_freq=args.max_edge_freq,
-            freq_embedding_size=args.freq_embedding_size,
-            output_dim=args.hidden_size,
-            node_hidden_dim=args.hidden_size,
-            edge_hidden_dim=args.hidden_size,
-            num_layers=args.num_layer,
-            num_step_set2set=args.set2set_iter,
-            num_layer_set2set=args.set2set_lstm_layer,
-            norm=args.norm,
-            gnn_model=args.model
-            )
+        positional_embedding_size=args.positional_embedding_size,
+        max_node_freq=args.max_node_freq,
+        max_edge_freq=args.max_edge_freq,
+        freq_embedding_size=args.freq_embedding_size,
+        output_dim=args.hidden_size,
+        node_hidden_dim=args.hidden_size,
+        edge_hidden_dim=args.hidden_size,
+        num_layers=args.num_layer,
+        num_step_set2set=args.set2set_iter,
+        num_layer_set2set=args.set2set_lstm_layer,
+        norm=args.norm,
+        gnn_model=args.model,
+    )
 
     # copy weights from `model' to `model_ema'
     if args.moco:
@@ -380,32 +561,47 @@ def main(args):
     ).cuda(args.gpu)
 
     assert args.softmax
-    criterion = NCESoftmaxLoss() if args.softmax else NCECriterion(n_data)
-    criterion = criterion.cuda(args.gpu)
+    if args.finetune:
+        criterion = nn.CrossEntropyLoss()
+    else:
+        criterion = NCESoftmaxLoss() if args.softmax else NCECriterion(n_data)
+        criterion = criterion.cuda(args.gpu)
 
     model = model.cuda(args.gpu)
     model_ema = model_ema.cuda(args.gpu)
 
-    if args.optimizer == 'sgd':
+    if args.finetune:
+        output_layer = nn.Linear(
+            in_features=args.hidden_size, out_features=dataset.num_classes
+        )
+        output_layer = output_layer.cuda(args.gpu)
+        output_layer_optimizer = torch.optim.Adam(
+            output_layer.parameters(),
+            lr=args.learning_rate,
+            betas=(args.beta1, args.beta2),
+            weight_decay=args.weight_decay,
+        )
+
+    if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(
             model.parameters(),
             lr=args.learning_rate,
             momentum=args.momentum,
             weight_decay=args.weight_decay,
         )
-    elif args.optimizer == 'adam':
+    elif args.optimizer == "adam":
         optimizer = torch.optim.Adam(
             model.parameters(),
             lr=args.learning_rate,
             betas=(args.beta1, args.beta2),
-            weight_decay=args.weight_decay
+            weight_decay=args.weight_decay,
         )
-    elif args.optimizer == 'adagrad':
+    elif args.optimizer == "adagrad":
         optimizer = torch.optim.Adagrad(
             model.parameters(),
             lr=args.learning_rate,
             lr_decay=args.lr_decay_rate,
-            weight_decay=args.weight_decay
+            weight_decay=args.weight_decay,
         )
     else:
         raise NotImplementedError
@@ -421,9 +617,9 @@ def main(args):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume, map_location="cpu")
             # checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint["epoch"] + 1
+            # args.start_epoch = checkpoint["epoch"] + 1
             model.load_state_dict(checkpoint["model"])
-            optimizer.load_state_dict(checkpoint["optimizer"])
+            # optimizer.load_state_dict(checkpoint["optimizer"])
             contrast.load_state_dict(checkpoint["contrast"])
             if args.moco:
                 model_ema.load_state_dict(checkpoint["model_ema"])
@@ -458,17 +654,25 @@ def main(args):
         print("==> training...")
 
         time1 = time.time()
-        loss = train_moco(
-            epoch,
-            train_loader,
-            model,
-            model_ema,
-            contrast,
-            criterion,
-            optimizer,
-            sw,
-            args
-        )
+        if args.finetune:
+            loss, _ = train_finetune(
+                epoch, train_loader, model, output_layer, criterion, optimizer, output_layer_optimizer, sw, args
+            )
+            valid_loss, valid_f1 = test_finetune(
+                epoch, valid_loader, model, output_layer, criterion, sw, args
+            )
+        else:
+            loss = train_moco(
+                epoch,
+                train_loader,
+                model,
+                model_ema,
+                contrast,
+                criterion,
+                optimizer,
+                sw,
+                args,
+            )
         time2 = time.time()
         print("epoch {}, total time {:.2f}".format(epoch, time2 - time1))
 
@@ -527,7 +731,7 @@ def main(args):
 
 if __name__ == "__main__":
 
-    warnings.simplefilter('once', UserWarning)
+    warnings.simplefilter("once", UserWarning)
     args = parse_option()
 
     main(args)
@@ -539,5 +743,5 @@ if __name__ == "__main__":
     #     args.alpha = 1 - trial.suggest_loguniform('alpha', 1e-4, 1e-2)
     #     return main(args, trial)
 
-    #, work_init_fn study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
+    # , work_init_fn study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
     # study.optimize(objective, n_trials=20)

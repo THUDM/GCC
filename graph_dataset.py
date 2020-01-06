@@ -225,10 +225,10 @@ class CogDLGraphDataset(GraphDataset):
             pass
         args = tmp()
         args.dataset = dataset
-        data = build_dataset(args)[0]
+        self.data = build_dataset(args)[0]
         self.graph = dgl.DGLGraph()
-        src, dst = data.edge_index.tolist()
-        num_nodes = data.edge_index.max() + 1
+        src, dst = self.data.edge_index.tolist()
+        num_nodes = self.data.edge_index.max() + 1
         self.graph.add_nodes(num_nodes)
         self.graph.add_edges(src, dst)
         self.graph.add_edges(dst, src)
@@ -236,6 +236,37 @@ class CogDLGraphDataset(GraphDataset):
         self.graph.readonly()
         self.graphs = [self.graph]
         self.length = sum([g.number_of_nodes() for g in self.graphs])
+        self.total = self.length
+
+
+class CogDLGraphDatasetLabeled(CogDLGraphDataset):
+    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
+        super(CogDLGraphDatasetLabeled, self).__init__(dataset, rw_hops, subgraph_size, restart_prob, positional_embedding_size, step_dist)
+        self.num_classes = self.data.y.shape[1]
+        print(f"num classes = {self.num_classes}")
+
+    def __getitem__(self, idx):
+        graph_idx = 0
+        node_idx = idx
+        for i in range(len(self.graphs)):
+            if  node_idx < self.graphs[i].number_of_nodes():
+                graph_idx = i
+                break
+            else:
+                node_idx -= self.graphs[i].number_of_nodes()
+
+        traces = dgl.contrib.sampling.random_walk_with_restart(
+            self.graphs[graph_idx],
+            seeds=[node_idx],
+            restart_prob=self.restart_prob,
+            max_nodes_per_seed=self.rw_hops)
+
+        graph_q = data_util._rwr_trace_to_dgl_graph(
+                g=self.graphs[graph_idx],
+                seed=node_idx,
+                trace=traces[0],
+                positional_embedding_size=self.positional_embedding_size)
+        return graph_q, self.data.y[idx].argmax().item()
 
 if __name__ == '__main__':
     import horovod.torch as hvd

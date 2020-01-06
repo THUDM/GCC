@@ -24,6 +24,13 @@ def batcher():
         return graph_q, graph_k
     return batcher_dev
 
+def labeled_batcher():
+    def batcher_dev(batch):
+        graph_q, label = zip(*batch)
+        graph_q = dgl.batch(graph_q)
+        return graph_q, torch.LongTensor(label)
+    return batcher_dev
+
 class dynamic_batcher(object):
     def __init__(self, max_node_per_batch):
         self.max_node_per_batch = max_node_per_batch
