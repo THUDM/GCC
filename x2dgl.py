@@ -14,6 +14,8 @@ import argparse
 import pathlib
 import logging
 import torch
+from cogdl.models.emb.prone import ProNE
+import numpy as np
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
@@ -63,6 +65,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("argument for x2dgl")
     parser.add_argument("--graph-dir", type=str, required=True, help="dir to load graphs")
     parser.add_argument("--save-file", type=str, required=True, help="file to save graphs")
+    parser.add_argument("--embed-dim", type=int, required=True, help="embeding dimension")
 
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
@@ -70,6 +73,7 @@ if __name__ == "__main__":
             and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
             and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
             and graph_file.suffix == '.lscc']
+    #  graphs = []
     for name in ["cs", "physics"]:
         g = Coauthor(name)[0]
         g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
@@ -83,7 +87,12 @@ if __name__ == "__main__":
     graphs.sort(key=lambda g: g.number_of_nodes(), reverse=True)
     graph_sizes = torch.LongTensor([g.number_of_nodes() for g in graphs])
     for i, g in enumerate(graphs):
-        print(i, g.number_of_nodes())
+        g.ndata.clear()
+        g.edata.clear()
+        model = ProNE(args.embed_dim, step=5, mu=0.2, theta=0.5)
+        emb = model.train(g.to_networkx()).astype(np.float32)
+        g.ndata['prone'] = torch.from_numpy(emb)
+        print(i, g)
     logger.info("save graphs to %s", args.save_file)
     save_graphs(
             filename=args.save_file,
