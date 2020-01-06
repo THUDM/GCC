@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 import dgl
 import numpy as np
-from graph_dataset import CogDLGraphDataset, LoadBalanceGraphDataset, worker_init_fn
+from graph_dataset import CogDLGraphDataset, LoadBalanceGraphDataset, hvd_worker_init_fn
 import data_util
 from models.graph_encoder import GraphEncoder
 from NCE.NCEAverage import MemoryMoCo
@@ -304,7 +304,7 @@ def main(args):
         collate_fn=data_util.dynamic_batcher(args.max_node_per_batch),
         #  shuffle=True,
         num_workers=args.num_workers,
-        worker_init_fn=worker_init_fn
+        worker_init_fn=hvd_worker_init_fn
     )
     if args.verbose:
         mem = psutil.virtual_memory()

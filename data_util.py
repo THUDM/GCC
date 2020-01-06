@@ -24,6 +24,13 @@ def batcher():
         return graph_q, graph_k
     return batcher_dev
 
+def labeled_batcher():
+    def batcher_dev(batch):
+        graph_q, label = zip(*batch)
+        graph_q = dgl.batch(graph_q)
+        return graph_q, torch.LongTensor(label)
+    return batcher_dev
+
 class dynamic_batcher(object):
     def __init__(self, max_node_per_batch):
         self.max_node_per_batch = max_node_per_batch
@@ -56,6 +63,29 @@ def plot_to_image(figure):
 	# Add the batch dimension
 	image = tf.expand_dims(image, 0)
 	return torch.from_numpy(image.numpy())
+
+def _edge_subgraph(trace, seed):
+    mapping = dict()
+    edge_list = set()
+    mapping[seed] = 0
+    for walk in trace:
+        u = seed
+        for v in walk.tolist():
+            if (u, v) not in edge_list:
+                if u not in mapping:
+                    mapping[u] = len(mapping)
+                if v not in mapping:
+                    mapping[v] = len(mapping)
+                edge_list.add((u, v))
+            u = v
+    subg = dgl.DGLGraph()
+    subg.add_nodes(len(mapping))
+    u_list, v_list = [], []
+    for u, v in edge_list:
+        u_list.append(mapping[u])
+        v_list.append(mapping[v])
+    subg.add_edges(u_list, v_list)
+    return subg
 
 def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
     subv = torch.unique(torch.cat(trace)).tolist()

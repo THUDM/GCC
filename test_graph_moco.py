@@ -34,7 +34,7 @@ def test_moco(train_loader, model, opt):
 
     emb_list = []
     for idx, batch in enumerate(train_loader):
-        graph_q, graph_k = batch.graph_q, batch.graph_k
+        graph_q, graph_k = batch
         bsz = graph_q.batch_size
         graph_q.to(torch.device(opt.gpu))
         graph_k.to(torch.device(opt.gpu))
@@ -111,6 +111,7 @@ def main(args):
         num_step_set2set=args.set2set_iter,
         num_layer_set2set=args.set2set_lstm_layer,
         gnn_model=args.model,
+        norm=args.norm
     )
 
     model = model.cuda(args_test.gpu)
