@@ -50,7 +50,8 @@ class GraphEncoder(nn.Module):
                  num_step_set2set=6,
                  num_layer_set2set=3,
                  norm=False,
-                 gnn_model="mpnn"):
+                 gnn_model="mpnn",
+                 lstm_as_gate=False):
         super(GraphEncoder, self).__init__()
 
         node_input_dim = positional_embedding_size + freq_embedding_size + 2
@@ -63,6 +64,7 @@ class GraphEncoder(nn.Module):
                     edge_input_dim=edge_input_dim,
                     edge_hidden_dim=edge_hidden_dim,
                     num_step_message_passing=num_layers,
+                    lstm_as_gate=lstm_as_gate,
                 )
         elif gnn_model == "gat":
             self.gnn = gat.UnsupervisedGAT(

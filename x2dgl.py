@@ -69,11 +69,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
-    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
-            and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
-            and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
-            and graph_file.suffix == '.lscc']
-    #  graphs = []
+    #  graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
+    #          and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
+    #          and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
+    #          and graph_file.suffix == '.lscc']
+    graphs = []
     for name in ["cs", "physics"]:
         g = Coauthor(name)[0]
         g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())

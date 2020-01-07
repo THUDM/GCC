@@ -16,6 +16,7 @@ import dgl.data
 
 from cogdl.datasets import build_dataset
 import data_util
+import horovod.torch as hvd
 
 
 def worker_init_fn(worker_id):
@@ -46,7 +47,8 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             num_workers=1,
             dgl_graphs_file="data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs2.bin",
             num_samples=10000,
-            num_copies=1):
+            num_copies=1,
+            graph_transform=None):
         super(LoadBalanceGraphDataset).__init__()
         self.rw_hops = rw_hops
         self.restart_prob = restart_prob
@@ -74,6 +76,7 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             jobs[argmin].append(idx)
         self.jobs = jobs * num_copies
         self.total = self.num_samples * num_workers
+        self.graph_transform = graph_transform
 
     def __len__(self):
         return self.num_samples * num_workers
@@ -124,6 +127,9 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
                 trace=traces[1],
                 positional_embedding_size=self.positional_embedding_size,
                 )
+        if self.graph_transform:
+            graph_q = self.graph_transform(graph_q)
+            graph_k = self.graph_transform(graph_k)
         return graph_q, graph_k
 
 class GraphDataset(torch.utils.data.Dataset):
