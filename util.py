@@ -5,6 +5,14 @@ import numpy as np
 import horovod.torch as hvd
 
 
+def warmup_linear(x, warmup=0.002):
+    """ Specifies a triangular learning rate schedule where peak is reached at `warmup`*`t_total`-th (as provided to BertAdam) training step.
+        After `t_total`-th training step, learning rate is zero. """
+    if x < warmup:
+        return x/warmup
+    return max((x-1.)/(warmup-1.), 0)
+
+
 def adjust_learning_rate(epoch, opt, optimizer):
     """Sets the learning rate to the initial LR decayed by 0.2 every steep step"""
     steps = np.sum(epoch > np.asarray(opt.lr_decay_epochs))

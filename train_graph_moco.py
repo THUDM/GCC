@@ -16,22 +16,30 @@ import psutil
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, f1_score
-#  import tensorboard_logger as tb_logger
+
 from torch.utils.tensorboard import SummaryWriter
 
 import data_util
-from graph_dataset import (CogDLGraphDataset, CogDLGraphDatasetLabeled,
-                           GraphDataset, LoadBalanceGraphDataset,
-                           worker_init_fn)
+from graph_dataset import (
+    CogDLGraphDataset,
+    CogDLGraphDatasetLabeled,
+    CogDLGraphClassificationDatasetLabeled,
+    GraphDataset,
+    LoadBalanceGraphDataset,
+    worker_init_fn,
+)
 from models.graph_encoder import GraphEncoder
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
-from util import AverageMeter, adjust_learning_rate
+from util import AverageMeter, adjust_learning_rate, warmup_linear
 
 try:
     from apex import amp, optimizers
 except ImportError:
     pass
+
+
+GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi"]
 
 
 def parse_option():
@@ -70,7 +78,7 @@ def parse_option():
     parser.add_argument("--exp", type=str, default="")
 
     # dataset definition
-    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde"])
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "collab", "imdb-binary", "imdb-multi"] + GRAPH_CLASSIFICATION_DSETS)
 
     # model definition
     parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn"])
@@ -103,6 +111,8 @@ def parse_option():
 
     # memory setting
     parser.add_argument("--moco", action="store_true", help="using MoCo (otherwise Instance Discrimination)")
+
+    # finetune setting
     parser.add_argument("--finetune", action="store_true")
 
     parser.add_argument("--alpha", type=float, default=0.999, help="exponential moving average weight")
@@ -126,7 +136,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "GMoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}_finetune_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{:.4f}_decay_{:.5f}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{:.2f}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}_finetune_{}_seed_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -147,6 +157,7 @@ def option_update(opt):
         opt.set2set_lstm_layer,
         opt.set2set_iter,
         opt.finetune,
+        opt.seed,
     )
 
     if opt.amp:
@@ -174,7 +185,15 @@ def moment_update(model, model_ema, m):
 
 
 def train_finetune(
-    epoch, train_loader, model, output_layer, criterion, optimizer, output_layer_optimizer, sw, opt
+    epoch,
+    train_loader,
+    model,
+    output_layer,
+    criterion,
+    optimizer,
+    output_layer_optimizer,
+    sw,
+    opt,
 ):
     """
     one epoch training for moco
@@ -217,6 +236,15 @@ def train_finetune(
         output_layer_optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_value_(model.parameters(), 1)
+        torch.nn.utils.clip_grad_value_(output_layer.parameters(), 1)
+        global_step = epoch * n_batch + idx
+        lr_this_step = opt.learning_rate * warmup_linear(
+            global_step / (opt.epochs * n_batch), 0.1
+        )
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr_this_step
+        for param_group in output_layer_optimizer.param_groups:
+            param_group["lr"] = lr_this_step
         optimizer.step()
         output_layer_optimizer.step()
 
@@ -264,10 +292,10 @@ def train_finetune(
 
         # tensorboard logger
         if (idx + 1) % opt.tb_freq == 0:
-            global_step = epoch * n_batch + idx
             sw.add_scalar("moco_loss", loss_meter.avg, global_step)
             sw.add_scalar("moco_f1", f1_meter.avg, global_step)
             sw.add_scalar("graph_size", graph_size.avg, global_step)
+            sw.add_scalar("lr", lr_this_step, global_step)
             sw.add_scalar("graph_size/max", max_num_nodes, global_step)
             sw.add_scalar("graph_size/max_edges", max_num_edges, global_step)
             #  sw.add_scalar(
@@ -280,15 +308,11 @@ def train_finetune(
     return epoch_loss_meter.avg, epoch_f1_meter.avg
 
 
-def test_finetune(
-    epoch, valid_loader, model, output_layer, criterion, sw, opt
-):
+def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
     n_batch = len(valid_loader)
     model.eval()
 
-    loss_meter = AverageMeter()
     epoch_loss_meter = AverageMeter()
-    f1_meter = AverageMeter()
     epoch_f1_meter = AverageMeter()
 
     for idx, batch in enumerate(valid_loader):
@@ -312,18 +336,15 @@ def test_finetune(
         f1 = f1_score(y.cpu().numpy(), preds.cpu().numpy(), average="micro")
 
         # ===================meters=====================
-        loss_meter.update(loss.item(), bsz)
         epoch_loss_meter.update(loss.item(), bsz)
-        f1_meter.update(f1, bsz)
         epoch_f1_meter.update(f1, bsz)
-        if (idx + 1) % opt.tb_freq == 0:
-            global_step = epoch * n_batch + idx
-            sw.add_scalar("moco_loss/valid", loss_meter.avg, global_step)
-            sw.add_scalar("moco_f1/valid", f1_meter.avg, global_step)
-            loss_meter.reset()
-            f1_meter.reset()
 
-    print(f"Epoch {epoch}, loss {epoch_loss_meter.avg:.3f}, f1 {epoch_f1_meter.avg:.3f}")
+    global_step = (epoch + 1) * n_batch
+    sw.add_scalar("moco_loss/valid", epoch_loss_meter.avg, global_step)
+    sw.add_scalar("moco_f1/valid", epoch_f1_meter.avg, global_step)
+    print(
+        f"Epoch {epoch}, loss {epoch_loss_meter.avg:.3f}, f1 {epoch_f1_meter.avg:.3f}"
+    )
     return epoch_loss_meter.avg, epoch_f1_meter.avg
 
 
@@ -462,18 +483,34 @@ def main(args):
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
     assert args.positional_embedding_size % 2 == 0
+    print("setting random seeds")
+    dgl.random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
 
     mem = psutil.virtual_memory()
     print("before construct dataset", mem.used / 1024 ** 3)
     if args.finetune:
-        dataset = CogDLGraphDatasetLabeled(
-            dataset=args.dataset,
-            rw_hops=args.rw_hops,
-            subgraph_size=args.subgraph_size,
-            restart_prob=args.restart_prob,
-            positional_embedding_size=args.positional_embedding_size,
+        if args.dataset in GRAPH_CLASSIFICATION_DSETS:
+            dataset = CogDLGraphClassificationDatasetLabeled(
+                dataset=args.dataset,
+                rw_hops=args.rw_hops,
+                subgraph_size=args.subgraph_size,
+                restart_prob=args.restart_prob,
+                positional_embedding_size=args.positional_embedding_size,
+            )
+        else:
+            dataset = CogDLGraphDatasetLabeled(
+                dataset=args.dataset,
+                rw_hops=args.rw_hops,
+                subgraph_size=args.subgraph_size,
+                restart_prob=args.restart_prob,
+                positional_embedding_size=args.positional_embedding_size,
+            )
+        train_dataset, valid_dataset = torch.utils.data.random_split(
+            dataset, [int(0.9 * len(dataset)), len(dataset) - int(0.9 * len(dataset))]
         )
-        train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [int(0.8 * len(dataset)), len(dataset) - int(0.8 * len(dataset))])
     elif args.dataset == "dgl":
         train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
@@ -492,21 +529,20 @@ def main(args):
             restart_prob=args.restart_prob,
             positional_embedding_size=args.positional_embedding_size,
         )
-    print("setting random seeds")
-    dgl.random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
 
     mem = psutil.virtual_memory()
     print("before construct dataloader", mem.used / 1024 ** 3)
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-        collate_fn=data_util.labeled_batcher() if args.finetune else data_util.batcher(),
+        collate_fn=data_util.labeled_batcher()
+        if args.finetune
+        else data_util.batcher(),
         shuffle=True if args.finetune else False,
         num_workers=args.num_workers,
-        worker_init_fn=None if args.finetune else worker_init_fn,
+        worker_init_fn=None
+        if args.finetune or args.dataset != "dgl"
+        else worker_init_fn,
     )
     if args.finetune:
         valid_loader = torch.utils.data.DataLoader(
@@ -656,7 +692,15 @@ def main(args):
         time1 = time.time()
         if args.finetune:
             loss, _ = train_finetune(
-                epoch, train_loader, model, output_layer, criterion, optimizer, output_layer_optimizer, sw, args
+                epoch,
+                train_loader,
+                model,
+                output_layer,
+                criterion,
+                optimizer,
+                output_layer_optimizer,
+                sw,
+                args,
             )
             valid_loss, valid_f1 = test_finetune(
                 epoch, valid_loader, model, output_layer, criterion, sw, args
@@ -722,10 +766,11 @@ def main(args):
         torch.cuda.empty_cache()
 
         # if (epoch + 1) % 5 == 0:
-        #     trial.report(loss, epoch)
+        #     trial.report(-valid_f1, epoch)
         #     if trial.should_prune():
         #         raise optuna.exceptions.TrialPruned()
 
+    # return -valid_f1
     return loss
 
 
@@ -737,11 +782,12 @@ if __name__ == "__main__":
     main(args)
     # import optuna
     # def objective(trial):
-    #     args.epochs = 30
-    #     args.learning_rate = trial.suggest_loguniform('learning_rate', 1e-3, 1e-2)
+    #     args.epochs = 50
+    #     args.learning_rate = trial.suggest_loguniform('learning_rate', 1e-4, 1e-2)
     #     args.weight_decay = trial.suggest_loguniform('weight_decay', 1e-5, 1e-3)
-    #     args.alpha = 1 - trial.suggest_loguniform('alpha', 1e-4, 1e-2)
+    #     args.restart_prob = trial.suggest_uniform('restart_prob', 0.5, 1)
+    #     # args.alpha = 1 - trial.suggest_loguniform('alpha', 1e-4, 1e-2)
     #     return main(args, trial)
 
-    # , work_init_fn study = optuna.load_study(study_name='graph_moco', storage="sqlite:///example.db")
+    # study = optuna.load_study(study_name='cat_prone', storage="sqlite:///example.db")
     # study.optimize(objective, n_trials=20)
