@@ -107,7 +107,6 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
         pass
     subv = [seed] + subv
     subg = g.subgraph(subv)
-    subg.copy_from_parent()
     assert subg.parent_nid[0] == seed, "by construction, node 0 in subgraph should be the seed"
 
     subg = _add_undirected_graph_positional_embedding(subg, positional_embedding_size // 2)
