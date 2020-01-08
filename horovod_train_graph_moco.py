@@ -23,6 +23,7 @@ from util import HorovodAverageMeter
 import psutil
 import warnings
 from tqdm import tqdm
+import torchvision.transforms as T
 
 def parse_option():
 
@@ -39,7 +40,8 @@ def parse_option():
     parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
     parser.add_argument("--dgl-graphs-file", type=str,
-            default="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
+            #default="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
+            default="./data_bin/dgl/dgl_built_in_graphs_prone.bin",
             help="dgl graphs to pretrain")
 
     # optimization
@@ -59,7 +61,7 @@ def parse_option():
     parser.add_argument("--aug", type=str, default="1st", choices=["1st", "2nd", "all"])
 
 
-    parser.add_argument("--exp", type=str, default="horovod")
+    parser.add_argument("--exp", type=str, default="horovod_lstm")
 
     # dataset definition
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde"])
@@ -72,6 +74,8 @@ def parse_option():
     parser.add_argument("--set2set-lstm-layer", type=int, default=1, help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
     parser.add_argument("--norm", action="store_true", help="apply 2-norm on output feats")
+    parser.add_argument("--graph-transform", type=str, default="distance", help="graph transformation")
+    parser.add_argument("--lstm-as-gate", action="store_true", help="replace gru in mpnn with lstm")
 
     # loss function
     parser.add_argument("--softmax", action="store_true", help="using softmax contrastive loss rather than NCE")
@@ -110,8 +114,6 @@ def parse_option():
                         help='number of batches processed locally before '
                             'executing allreduce across workers; it multiplies '
                             'total batch size.')
-    parser.add_argument('--use-adasum', action='store_true', default=False,
-                        help='use adasum algorithm to do reduction')
 
     opt = parser.parse_args()
     assert opt.positional_embedding_size % 2 == 0
@@ -129,7 +131,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "GMoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}_gt_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -148,7 +150,8 @@ def option_update(opt):
         opt.optimizer,
         opt.norm,
         opt.set2set_lstm_layer,
-        opt.set2set_iter
+        opt.set2set_iter,
+        opt.graph_transform
     )
 
     opt.model_name = "{}_aug_{}".format(opt.model_name, opt.aug)
@@ -277,6 +280,12 @@ def main(args):
         mem = psutil.virtual_memory()
         print("before construct dataset", mem.used/1024**3)
     if args.dataset == "dgl":
+        if args.graph_transform == "distance":
+            graph_transform = T.Compose(
+                [data_util.Distance(p=2, emb_name="prone")])
+        elif args.graph_transform == "":
+            graph_transform = None
+
         train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
             restart_prob=args.restart_prob,
@@ -285,6 +294,7 @@ def main(args):
             num_samples=args.num_samples,
             dgl_graphs_file=args.dgl_graphs_file,
             num_copies=1,
+            graph_transform=graph_transform
         )
     else:
         train_dataset = CogDLGraphDataset(
@@ -325,7 +335,8 @@ def main(args):
             num_step_set2set=args.set2set_iter,
             num_layer_set2set=args.set2set_lstm_layer,
             norm=args.norm,
-            gnn_model=args.model
+            gnn_model=args.model,
+            lstm_as_gate=args.lstm_as_gate,
             )
     model_ema = GraphEncoder(
             positional_embedding_size=args.positional_embedding_size,
@@ -339,7 +350,8 @@ def main(args):
             num_step_set2set=args.set2set_iter,
             num_layer_set2set=args.set2set_lstm_layer,
             norm=args.norm,
-            gnn_model=args.model
+            gnn_model=args.model,
+            lstm_as_gate=args.lstm_as_gate,
             )
 
     # copy weights from `model' to `model_ema'

@@ -39,7 +39,8 @@ class UnsupervisedMPNN(nn.Module):
                  node_hidden_dim=32,
                  edge_input_dim=32,
                  edge_hidden_dim=32,
-                 num_step_message_passing=6):
+                 num_step_message_passing=6,
+                 lstm_as_gate=False):
         super(UnsupervisedMPNN, self).__init__()
 
         self.num_step_message_passing = num_step_message_passing
@@ -51,7 +52,11 @@ class UnsupervisedMPNN(nn.Module):
                            out_feats=node_hidden_dim,
                            edge_func=edge_network,
                            aggregator_type='sum')
-        self.gru = nn.GRU(node_hidden_dim, node_hidden_dim)
+        self.lstm_as_gate = lstm_as_gate
+        if lstm_as_gate:
+            self.lstm = nn.LSTM(node_hidden_dim, node_hidden_dim)
+        else:
+            self.gru = nn.GRU(node_hidden_dim, node_hidden_dim)
 
     def forward(self, g, n_feat, e_feat):
         """Predict molecule labels
@@ -73,10 +78,14 @@ class UnsupervisedMPNN(nn.Module):
         """
         out = F.relu(self.lin0(n_feat))                 # (B1, H1)
         h = out.unsqueeze(0)                            # (1, B1, H1)
+        c = torch.zeros_like(h)
 
         for i in range(self.num_step_message_passing):
             m = F.relu(self.conv(g, out, e_feat))       # (B1, H1)
-            out, h = self.gru(m.unsqueeze(0), h)
+            if self.lstm_as_gate:
+                out, (h, c) = self.lstm(m.unsqueeze(0), (h, c))
+            else:
+                out, h = self.gru(m.unsqueeze(0), h)
             out = out.squeeze(0)
 
         return out

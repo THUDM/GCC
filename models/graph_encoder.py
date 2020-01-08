@@ -41,7 +41,9 @@ class GraphEncoder(nn.Module):
                  positional_embedding_size=32,
                  max_node_freq=8,
                  max_edge_freq=8,
+                 max_degree=16,
                  freq_embedding_size=32,
+                 degree_embedding_size=32,
                  output_dim=32,
                  node_hidden_dim=32,
                  edge_hidden_dim=32,
@@ -50,10 +52,11 @@ class GraphEncoder(nn.Module):
                  num_step_set2set=6,
                  num_layer_set2set=3,
                  norm=False,
-                 gnn_model="mpnn"):
+                 gnn_model="mpnn",
+                 lstm_as_gate=False):
         super(GraphEncoder, self).__init__()
 
-        node_input_dim = positional_embedding_size + freq_embedding_size + 2
+        node_input_dim = positional_embedding_size + freq_embedding_size + degree_embedding_size + 3
         edge_input_dim=freq_embedding_size + 1
         if gnn_model == "mpnn":
             self.gnn = mpnn.UnsupervisedMPNN(
@@ -63,6 +66,7 @@ class GraphEncoder(nn.Module):
                     edge_input_dim=edge_input_dim,
                     edge_hidden_dim=edge_hidden_dim,
                     num_step_message_passing=num_layers,
+                    lstm_as_gate=lstm_as_gate,
                 )
         elif gnn_model == "gat":
             self.gnn = gat.UnsupervisedGAT(
@@ -75,10 +79,15 @@ class GraphEncoder(nn.Module):
 
         self.max_node_freq = max_node_freq
         self.max_edge_freq = max_edge_freq
+        self.max_degree = max_degree
 
         self.node_freq_embedding = nn.Embedding(
                 num_embeddings=max_node_freq+1,
                 embedding_dim=freq_embedding_size)
+        self.degree_embedding = nn.Embedding(
+                num_embeddings=max_degree+1,
+                embedding_dim=degree_embedding_size)
+
         self.edge_freq_embedding = nn.Embedding(
                 num_embeddings=max_edge_freq+1,
                 embedding_dim=freq_embedding_size)
@@ -109,13 +118,17 @@ class GraphEncoder(nn.Module):
         """
 
         nfreq = g.ndata['nfreq']
+        device = g.ndata['seed'].device
+        degrees = g.in_degrees().cuda(device)
         n_feat = torch.cat(
                 (
                     g.ndata['pos_undirected'],
                     g.ndata['pos_directed'],
                     self.node_freq_embedding(nfreq.clamp(0, self.max_node_freq)),
+                    self.degree_embedding(degrees.clamp(0, self.max_degree)),
                     g.ndata['seed'].unsqueeze(1).float(),
-                    nfreq.unsqueeze(1).float() / self.max_node_freq
+                    nfreq.unsqueeze(1).float() / self.max_node_freq,
+                    degrees.unsqueeze(1).float() / self.max_degree
                 ),
                 dim=-1
                 )
