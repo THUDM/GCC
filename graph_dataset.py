@@ -170,8 +170,7 @@ class GraphDataset(torch.utils.data.Dataset):
         image_k = data_util.plot_to_image(figure_k)
         return image_q, image_k
 
-
-    def __getitem__(self, idx):
+    def _convert_idx(self, idx):
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):
@@ -180,6 +179,10 @@ class GraphDataset(torch.utils.data.Dataset):
                 break
             else:
                 node_idx -= self.graphs[i].number_of_nodes()
+        return graph_idx, node_idx
+
+    def __getitem__(self, idx):
+        graph_idx, node_idx = self._convert_idx(idx)
 
         step = np.random.choice(len(self.step_dist), 1, p=self.step_dist)[0]
         if step == 0:
@@ -226,24 +229,74 @@ class CogDLGraphDataset(GraphDataset):
         args = tmp()
         args.dataset = dataset
         self.data = build_dataset(args)[0]
-        self.graph = dgl.DGLGraph()
-        src, dst = self.data.edge_index.tolist()
-        num_nodes = self.data.edge_index.max() + 1
-        self.graph.add_nodes(num_nodes)
-        self.graph.add_edges(src, dst)
-        self.graph.add_edges(dst, src)
-        assert all(self.graph.out_degrees() != 0)
-        self.graph.readonly()
-        self.graphs = [self.graph]
+        self.graphs = [self._create_dgl_graph(self.data)]
         self.length = sum([g.number_of_nodes() for g in self.graphs])
         self.total = self.length
+    
+    def _create_dgl_graph(self, data):
+        graph = dgl.DGLGraph()
+        src, dst = data.edge_index.tolist()
+        num_nodes = data.edge_index.max() + 1
+        graph.add_nodes(num_nodes)
+        graph.add_edges(src, dst)
+        graph.add_edges(dst, src)
+        assert all(graph.out_degrees() != 0)
+        graph.readonly()
+        return graph
 
+
+class CogDLGraphClassificationDataset(CogDLGraphDataset):
+    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
+        self.rw_hops = rw_hops
+        self.subgraph_size = subgraph_size
+        self.restart_prob = restart_prob
+        self.positional_embedding_size = positional_embedding_size
+        self.step_dist = step_dist
+        assert(positional_embedding_size > 1)
+
+        class tmp():
+            # HACK
+            pass
+        args = tmp()
+        args.dataset = dataset
+        self.dataset = build_dataset(args)
+        self.graphs = [self._create_dgl_graph(data) for data in self.dataset]
+
+        self.length = len(self.graphs)
+        self.total = self.length
+
+    def _convert_idx(self, idx):
+        graph_idx = idx
+        node_idx = self.graphs[idx].out_degrees().argmax().item()
+        return graph_idx, node_idx
+
+class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
+    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
+        super(CogDLGraphClassificationDatasetLabeled, self).__init__(dataset, rw_hops, subgraph_size, restart_prob, positional_embedding_size, step_dist)
+        self.num_classes = self.dataset.data.y.max().item() + 1
+
+    def __getitem__(self, idx):
+        graph_idx = idx
+        node_idx = self.graphs[idx].out_degrees().argmax().item()
+
+        traces = dgl.contrib.sampling.random_walk_with_restart(
+            self.graphs[graph_idx],
+            seeds=[node_idx],
+            restart_prob=self.restart_prob,
+            max_nodes_per_seed=self.rw_hops)
+
+        graph_q = data_util._rwr_trace_to_dgl_graph(
+                g=self.graphs[graph_idx],
+                seed=node_idx,
+                trace=traces[0],
+                positional_embedding_size=self.positional_embedding_size)
+class CogDLGraphDatasetLabeled(CogDLGraphDataset):
 
 class CogDLGraphDatasetLabeled(CogDLGraphDataset):
-    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
+    def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0], cat_prone=False):
         super(CogDLGraphDatasetLabeled, self).__init__(dataset, rw_hops, subgraph_size, restart_prob, positional_embedding_size, step_dist)
-        self.num_classes = self.data.y.shape[1]
-        print(f"num classes = {self.num_classes}")
+        assert(len(self.graphs) == 1)
+        self.num_classes = self.data.y.max().item() + 1
 
     def __getitem__(self, idx):
         graph_idx = 0

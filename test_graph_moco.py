@@ -14,14 +14,18 @@ import tensorboard_logger as tb_logger
 import torch
 
 from data_util import batcher
-from graph_dataset import CogDLGraphDataset, GraphDataset
+from graph_dataset import (
+    CogDLGraphDataset,
+    CogDLGraphClassificationDataset,
+    GraphDataset,
+)
 from models.gat import UnsupervisedGAT
 from models.gcn import UnsupervisedGCN
 from models.graph_encoder import GraphEncoder
 from models.mpnn import UnsupervisedMPNN
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
-from train_graph_moco import option_update, parse_option
+from train_graph_moco import option_update, parse_option, GRAPH_CLASSIFICATION_DSETS
 from util import AverageMeter, adjust_learning_rate
 
 
@@ -49,11 +53,11 @@ def test_moco(train_loader, model, opt):
     return torch.cat(emb_list)
 
 
-def main(args):
+def main():
     parser = argparse.ArgumentParser("argument for training")
     # fmt: off
     parser.add_argument("--load-path", type=str, help="path to load model")
-    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde"])
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index-rand20intop200"] + GRAPH_CLASSIFICATION_DSETS)
     parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
     # fmt: on
     args_test = parser.parse_args()
@@ -81,13 +85,22 @@ def main(args):
             hidden_size=args.hidden_size,
         )
     else:
-        train_dataset = CogDLGraphDataset(
-            dataset=args_test.dataset,
-            rw_hops=args.rw_hops,
-            subgraph_size=args.subgraph_size,
-            restart_prob=args.restart_prob,
-            positional_embedding_size=args.positional_embedding_size,
-        )
+        if args_test.dataset in GRAPH_CLASSIFICATION_DSETS:
+            train_dataset = CogDLGraphClassificationDataset(
+                dataset=args_test.dataset,
+                rw_hops=args.rw_hops,
+                subgraph_size=args.subgraph_size,
+                restart_prob=args.restart_prob,
+                positional_embedding_size=args.positional_embedding_size,
+            )
+        else:
+            train_dataset = CogDLGraphDataset(
+                dataset=args_test.dataset,
+                rw_hops=args.rw_hops,
+                subgraph_size=args.subgraph_size,
+                restart_prob=args.restart_prob,
+                positional_embedding_size=args.positional_embedding_size,
+            )
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
@@ -111,7 +124,7 @@ def main(args):
         num_step_set2set=args.set2set_iter,
         num_layer_set2set=args.set2set_lstm_layer,
         gnn_model=args.model,
-        norm=args.norm
+        norm=args.norm,
     )
 
     model = model.cuda(args_test.gpu)
@@ -127,5 +140,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_option()
-    main(args)
+    main()
