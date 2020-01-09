@@ -45,16 +45,19 @@ def labeled_batcher():
     return batcher_dev
 
 class dynamic_batcher(object):
-    def __init__(self, max_node_per_batch):
+    def __init__(self, max_node_per_batch=128*32*2, max_edge_per_batch=20000):
         self.max_node_per_batch = max_node_per_batch
+        self.max_edge_per_batch = max_edge_per_batch
 
     def __call__(self, batch):
         # TODO make it more elegant with itertools?
+        #  batch = sorted(batch, key=lambda graphs: graphs[0].number_of_edges() + graphs[1].number_of_edges())
         graph_q, graph_k = zip(*batch)
-        accum = 0
+        accum_node, accum_edge = 0, 0
         for i in range(len(graph_q)):
-            accum += graph_q[i].number_of_nodes() + graph_k[i].number_of_nodes()
-            if accum > self.max_node_per_batch:
+            accum_node += graph_q[i].number_of_nodes() + graph_k[i].number_of_nodes()
+            accum_edge += graph_q[i].number_of_edges() + graph_k[i].number_of_edges()
+            if i > 1 and (accum_node > self.max_node_per_batch or accum_edge > self.max_edge_per_batch):
                 graph_q = graph_q[:i]
                 graph_k = graph_k[:i]
                 break
@@ -62,7 +65,7 @@ class dynamic_batcher(object):
         return graph_q, graph_k
 
 class filter_batcher(object):
-    def __init__(self, max_node, max_edge):
+    def __init__(self, max_node=256, max_edge=2048):
         self.max_node = max_node
         self.max_edge = max_edge
 

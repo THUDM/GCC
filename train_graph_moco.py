@@ -33,6 +33,11 @@ from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
 from util import AverageMeter, adjust_learning_rate, warmup_linear
 
+# https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
+import resource
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
+
 try:
     from apex import amp, optimizers
 except ImportError:
@@ -537,7 +542,7 @@ def main(args):
         batch_size=args.batch_size,
         collate_fn=data_util.labeled_batcher()
         if args.finetune
-        else data_util.batcher(),
+        else data_util.dynamic_batcher(max_edge_per_batch=40000),
         shuffle=True if args.finetune else False,
         num_workers=args.num_workers,
         worker_init_fn=None

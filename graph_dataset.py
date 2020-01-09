@@ -238,7 +238,7 @@ class CogDLGraphDataset(GraphDataset):
         self.graphs = [self._create_dgl_graph(self.data)]
         self.length = sum([g.number_of_nodes() for g in self.graphs])
         self.total = self.length
-    
+
     def _create_dgl_graph(self, data):
         graph = dgl.DGLGraph()
         src, dst = data.edge_index.tolist()
@@ -296,7 +296,7 @@ class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
                 seed=node_idx,
                 trace=traces[0],
                 positional_embedding_size=self.positional_embedding_size)
-class CogDLGraphDatasetLabeled(CogDLGraphDataset):
+        return graph_q, self.dataset.data.y[graph_idx].item()
 
 class CogDLGraphDatasetLabeled(CogDLGraphDataset):
     def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0], cat_prone=False):
