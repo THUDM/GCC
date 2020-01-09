@@ -16,6 +16,7 @@ import sklearn.preprocessing as preprocessing
 import torch.nn.functional as F
 import dgl
 import matplotlib.pyplot as plt
+import itertools
 
 class Distance(object):
     def __init__(self, p=2, emb_name="prone"):
@@ -48,7 +49,7 @@ class dynamic_batcher(object):
         self.max_node_per_batch = max_node_per_batch
 
     def __call__(self, batch):
-        # TODO make it more elegant with itertool?
+        # TODO make it more elegant with itertools?
         graph_q, graph_k = zip(*batch)
         accum = 0
         for i in range(len(graph_q)):
@@ -57,6 +58,22 @@ class dynamic_batcher(object):
                 graph_q = graph_q[:i]
                 graph_k = graph_k[:i]
                 break
+        graph_q, graph_k = dgl.batch(graph_q), dgl.batch(graph_k)
+        return graph_q, graph_k
+
+class filter_batcher(object):
+    def __init__(self, max_node, max_edge):
+        self.max_node = max_node
+        self.max_edge = max_edge
+
+    def __call__(self, batch):
+        predicate = lambda graphs: \
+                graphs[0].number_of_nodes() > self.max_node or \
+                graphs[0].number_of_edges() > self.max_edge or \
+                graphs[1].number_of_nodes() > self.max_node or \
+                graphs[1].number_of_edges() > self.max_edge
+        batch = itertools.filterfalse(predicate, batch)
+        graph_q, graph_k = zip(*batch)
         graph_q, graph_k = dgl.batch(graph_q), dgl.batch(graph_k)
         return graph_q, graph_k
 
