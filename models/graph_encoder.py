@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import models.mpnn as mpnn
 import models.gat as gat
+import models.gin as gin
 from dgl.nn.pytorch import Set2Set
 
 class GraphEncoder(nn.Module):
@@ -76,6 +77,20 @@ class GraphEncoder(nn.Module):
                     num_layers=num_layers,
                     num_heads=num_heads,
                     )
+        elif gnn_model == "gin":
+            self.gnn = gin.UnsupervisedGIN(
+                    num_layers=num_layers,
+                    num_mlp_layers=2,
+                    input_dim=node_input_dim,
+                    hidden_dim=node_hidden_dim,
+                    output_dim=output_dim,
+                    final_dropout=0.5,
+                    learn_eps=False,
+                    graph_pooling_type='sum',
+                    neighbor_pooling_type='sum'
+                    )
+        self.gnn_model = gnn_model
+
 
         self.max_node_freq = max_node_freq
         self.max_edge_freq = max_edge_freq
@@ -119,7 +134,10 @@ class GraphEncoder(nn.Module):
 
         nfreq = g.ndata['nfreq']
         device = g.ndata['seed'].device
-        degrees = g.in_degrees().cuda(device)
+        degrees = g.in_degrees()
+        if device != torch.device("cpu"):
+            degrees = degrees.cuda(device)
+
         n_feat = torch.cat(
                 (
                     g.ndata['pos_undirected'],
@@ -142,6 +160,10 @@ class GraphEncoder(nn.Module):
                 dim=-1
                 )
         x = self.gnn(g, n_feat, e_feat)
+        if self.gnn_model == "gin":
+            if self.norm:
+                x = F.normalize(x, p=2, dim=-1)
+            return x
         x = self.set2set(g, x)
         x = self.lin_readout(x)
         if self.norm:
@@ -149,7 +171,7 @@ class GraphEncoder(nn.Module):
         return x
 
 if __name__ == "__main__":
-    model = GraphEncoder(gnn_model="mpnn")
+    model = GraphEncoder(gnn_model="gin")
     print(model)
     g = dgl.DGLGraph()
     g.add_nodes(3)
@@ -159,6 +181,7 @@ if __name__ == "__main__":
     g.ndata['seed'] = torch.zeros(3, dtype=torch.long)
     g.ndata['nfreq'] = torch.ones(3, dtype=torch.long)
     g.edata['efreq'] = torch.ones(4, dtype=torch.long)
+    g = dgl.batch([g, g, g])
     y = model(g)
     print(y.shape)
     print(y)

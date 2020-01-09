@@ -86,7 +86,7 @@ def parse_option():
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "collab", "imdb-binary", "imdb-multi"] + GRAPH_CLASSIFICATION_DSETS)
 
     # model definition
-    parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn"])
+    parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn", "gin"])
     # other possible choices: ggnn, mpnn, graphsage ...
     parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
