@@ -1,7 +1,7 @@
 #!/bin/bash
 gpu=$1
 hidden_size=$2
-test_script=${3:-scripts/test_mpnn.sh}
+test_script=${3:-scripts/test_gin.sh}
 
 bash $test_script $gpu kdd > /dev/null
 bash $test_script $gpu icdm > /dev/null
