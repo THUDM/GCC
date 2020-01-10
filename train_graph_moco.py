@@ -332,9 +332,8 @@ def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
 
         with torch.no_grad():
             feat_q = model(graph_q)
-
-        assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
-        out = output_layer(feat_q)
+            assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
+            out = output_layer(feat_q)
         loss = criterion(out, y)
 
         preds = out.argmax(dim=1)
@@ -542,7 +541,7 @@ def main(args):
         batch_size=args.batch_size,
         collate_fn=data_util.labeled_batcher()
         if args.finetune
-        else data_util.dynamic_batcher(max_edge_per_batch=40000),
+        else data_util.batcher(),
         shuffle=True if args.finetune else False,
         num_workers=args.num_workers,
         worker_init_fn=None
