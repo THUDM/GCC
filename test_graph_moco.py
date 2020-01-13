@@ -44,12 +44,17 @@ def test_moco(train_loader, model, opt):
         graph_k.to(torch.device(opt.gpu))
 
         with torch.no_grad():
-            feat_q = model(graph_q)
-            feat_k = model(graph_k)
+            feat_q, all_outputs_q = model(graph_q, return_all_outputs=True)
+            feat_k, all_outputs_k = model(graph_k, return_all_outputs=True)
+            if opt.return_all_outputs:
+                all_outputs_q = torch.cat(all_outputs_q, dim=1)
+                all_outputs_k = torch.cat(all_outputs_k, dim=1)
 
         assert feat_q.shape == (bsz, opt.hidden_size)
-        # emb_list.append(feat_q.detach().cpu())
-        emb_list.append(((feat_q + feat_k) / 2).detach().cpu())
+        if opt.return_all_outputs:
+            emb_list.append(((all_outputs_q + all_outputs_k) / 2).detach().cpu())
+        else:
+            emb_list.append(((feat_q + feat_k) / 2).detach().cpu())
     return torch.cat(emb_list)
 
 
@@ -58,6 +63,7 @@ def main():
     # fmt: off
     parser.add_argument("--load-path", type=str, help="path to load model")
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index-rand20intop200"] + GRAPH_CLASSIFICATION_DSETS)
+    parser.add_argument("--return-all-outputs", action="store_true", help="concat all layer's pooled output as final embedding")
     parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
     # fmt: on
     args_test = parser.parse_args()
@@ -135,6 +141,7 @@ def main():
     torch.cuda.empty_cache()
 
     args.gpu = args_test.gpu
+    args.return_all_outputs = args_test.return_all_outputs
     emb = test_moco(train_loader, model, args)
     np.save(os.path.join(args.model_path, args_test.dataset), emb.numpy())
 

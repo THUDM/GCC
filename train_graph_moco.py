@@ -16,6 +16,7 @@ import psutil
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, f1_score
+from sklearn.model_selection import StratifiedKFold
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -23,6 +24,7 @@ import data_util
 from graph_dataset import (
     CogDLGraphDataset,
     CogDLGraphDatasetLabeled,
+    CogDLGraphClassificationDataset,
     CogDLGraphClassificationDatasetLabeled,
     GraphDataset,
     LoadBalanceGraphDataset,
@@ -35,6 +37,7 @@ from util import AverageMeter, adjust_learning_rate, warmup_linear
 
 # https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
 import resource
+
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
 
@@ -125,6 +128,7 @@ def parse_option():
     # GPU setting
     parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
     parser.add_argument("--seed", type=int, default=42, help="random seed.")
+    parser.add_argument("--fold-idx", type=int, default=0, help="random seed.")
     # fmt: on
 
     opt = parser.parse_args()
@@ -205,6 +209,7 @@ def train_finetune(
     """
     n_batch = len(train_loader)
     model.train()
+    output_layer.train()
 
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -316,6 +321,7 @@ def train_finetune(
 def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
     n_batch = len(valid_loader)
     model.eval()
+    output_layer.eval()
 
     epoch_loss_meter = AverageMeter()
     epoch_f1_meter = AverageMeter()
@@ -504,6 +510,7 @@ def main(args):
                 restart_prob=args.restart_prob,
                 positional_embedding_size=args.positional_embedding_size,
             )
+            labels = dataset.dataset.data.y.tolist()
         else:
             dataset = CogDLGraphDatasetLabeled(
                 dataset=args.dataset,
@@ -512,9 +519,19 @@ def main(args):
                 restart_prob=args.restart_prob,
                 positional_embedding_size=args.positional_embedding_size,
             )
-        train_dataset, valid_dataset = torch.utils.data.random_split(
-            dataset, [int(0.9 * len(dataset)), len(dataset) - int(0.9 * len(dataset))]
-        )
+            labels = dataset.data.y.argmax(dim=1).tolist()
+
+        skf = StratifiedKFold(n_splits=10, shuffle=True, random_state=args.seed)
+        idx_list = []
+        for idx in skf.split(np.zeros(len(labels)), labels):
+            idx_list.append(idx)
+        assert (
+            0 <= args.fold_idx and args.fold_idx < 10
+        ), "fold_idx must be from 0 to 9."
+        train_idx, test_idx = idx_list[args.fold_idx]
+        train_dataset = torch.utils.data.Subset(dataset, train_idx)
+        valid_dataset = torch.utils.data.Subset(dataset, test_idx)
+
     elif args.dataset == "dgl":
         train_dataset = LoadBalanceGraphDataset(
             rw_hops=args.rw_hops,
@@ -526,13 +543,22 @@ def main(args):
             num_copies=args.num_copies,
         )
     else:
-        train_dataset = CogDLGraphDataset(
-            dataset=args.dataset,
-            rw_hops=args.rw_hops,
-            subgraph_size=args.subgraph_size,
-            restart_prob=args.restart_prob,
-            positional_embedding_size=args.positional_embedding_size,
-        )
+        if args.dataset in GRAPH_CLASSIFICATION_DSETS:
+            train_dataset = CogDLGraphClassificationDataset(
+                dataset=args.dataset,
+                rw_hops=args.rw_hops,
+                subgraph_size=args.subgraph_size,
+                restart_prob=args.restart_prob,
+                positional_embedding_size=args.positional_embedding_size,
+            )
+        else:
+            train_dataset = CogDLGraphDataset(
+                dataset=args.dataset,
+                rw_hops=args.rw_hops,
+                subgraph_size=args.subgraph_size,
+                restart_prob=args.restart_prob,
+                positional_embedding_size=args.positional_embedding_size,
+            )
 
     mem = psutil.virtual_memory()
     print("before construct dataloader", mem.used / 1024 ** 3)
@@ -621,6 +647,13 @@ def main(args):
             betas=(args.beta1, args.beta2),
             weight_decay=args.weight_decay,
         )
+
+        def clear_bn(m):
+            classname = m.__class__.__name__
+            if classname.find("BatchNorm") != -1:
+                m.reset_running_stats()
+
+        model.apply(clear_bn)
 
     if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(

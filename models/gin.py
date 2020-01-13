@@ -163,8 +163,10 @@ class UnsupervisedGIN(nn.Module):
         score_over_layer = 0
 
         # perform pooling over all nodes in each graph in every layer
-        for i, h in enumerate(hidden_rep):
+        all_outputs = []
+        for i, h in list(enumerate(hidden_rep)):
             pooled_h = self.pool(g, h)
+            all_outputs.append(pooled_h)
             score_over_layer += self.drop(self.linears_prediction[i](pooled_h))
 
-        return score_over_layer
+        return score_over_layer, all_outputs[1:]
