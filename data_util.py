@@ -8,7 +8,7 @@
 import numpy as np
 import scipy
 import torch
-import tensorflow as tf
+# import tensorflow as tf
 import io
 import scipy.sparse as sparse
 from scipy.sparse import linalg
@@ -127,37 +127,40 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
         pass
     subv = [seed] + subv
     subg = g.subgraph(subv)
-    assert subg.parent_nid[0] == seed, "by construction, node 0 in subgraph should be the seed"
+    # subg = g.subgraph(g.nodes())
+    # assert subg.parent_nid[0] == seed, "by construction, node 0 in subgraph should be the seed"
 
-    subg = _add_undirected_graph_positional_embedding(subg, positional_embedding_size // 2)
+    subg = _add_undirected_graph_positional_embedding(subg, positional_embedding_size)
+    # subg = _add_undirected_graph_positional_embedding(subg, positional_embedding_size // 2)
 
-    mapping = dict([(v, k) for k, v in enumerate(subg.parent_nid.tolist())])
-    nfreq = torch.zeros(subg.number_of_nodes(), dtype=torch.long)
-    efreq = torch.zeros(subg.number_of_edges(), dtype=torch.long)
+    # mapping = dict([(v, k) for k, v in enumerate(subg.parent_nid.tolist())])
+    # nfreq = torch.zeros(subg.number_of_nodes(), dtype=torch.long)
+    # efreq = torch.zeros(subg.number_of_edges(), dtype=torch.long)
 
-    M = np.zeros(
-            shape=(subg.number_of_nodes(), subg.number_of_nodes()),
-            dtype=np.float32
-            )
-    for walk in trace:
-        u = mapping[seed]
-        nfreq[u] += 1
-        for v in walk.tolist():
-            v = mapping[v]
-            nfreq[v] += 1
-            # add edge feature for (u, v)
-            eid = subg.edge_id(u, v)
-            efreq[eid] += 1
-            M[u, v] += 1
-            u = v
+    # M = np.zeros(
+    #         shape=(subg.number_of_nodes(), subg.number_of_nodes()),
+    #         dtype=np.float32
+    #         )
+    # for walk in trace:
+    #     u = mapping[seed]
+    #     nfreq[u] += 1
+    #     for v in walk.tolist():
+    #         v = mapping[v]
+    #         nfreq[v] += 1
+    #         # add edge feature for (u, v)
+    #         eid = subg.edge_id(u, v)
+    #         efreq[eid] += 1
+    #         M[u, v] += 1
+    #         u = v
 
-    subg = _add_directed_graph_positional_embedding(subg, M, positional_embedding_size // 2)
+    # subg = _add_directed_graph_positional_embedding(subg, M, positional_embedding_size // 2)
 
-    subg.ndata['nfreq'] = nfreq
-    subg.edata['efreq'] = efreq
+    # subg.ndata['nfreq'] = nfreq
+    # subg.edata['efreq'] = efreq
 
     subg.ndata['seed'] = torch.zeros(subg.number_of_nodes(), dtype=torch.long)
     subg.ndata['seed'][0] = 1
+    # subg.ndata['seed'][seed] = 1
     return subg
 
 def eigen_decomposision(n, k, laplacian, hidden_size, retry):

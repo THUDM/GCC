@@ -246,7 +246,7 @@ class CogDLGraphDataset(GraphDataset):
         graph.add_nodes(num_nodes)
         graph.add_edges(src, dst)
         graph.add_edges(dst, src)
-        assert all(graph.out_degrees() != 0)
+        # assert all(graph.out_degrees() != 0)
         graph.readonly()
         return graph
 
@@ -302,7 +302,7 @@ class CogDLGraphDatasetLabeled(CogDLGraphDataset):
     def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0], cat_prone=False):
         super(CogDLGraphDatasetLabeled, self).__init__(dataset, rw_hops, subgraph_size, restart_prob, positional_embedding_size, step_dist)
         assert(len(self.graphs) == 1)
-        self.num_classes = self.data.y.max().item() + 1
+        self.num_classes = self.data.y.shape[1]
 
     def __getitem__(self, idx):
         graph_idx = 0
