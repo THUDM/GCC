@@ -47,7 +47,7 @@ except ImportError:
     pass
 
 
-GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi"]
+GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi", "rdt-b", "rdt-5k"]
 
 
 def parse_option():
@@ -539,7 +539,7 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
             num_samples=args.num_samples,
-            dgl_graphs_file="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
+            dgl_graphs_file="./data_bin/dgl/small.bin",
             num_copies=args.num_copies,
         )
     else:

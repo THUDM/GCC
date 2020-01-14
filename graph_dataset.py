@@ -246,7 +246,7 @@ class CogDLGraphDataset(GraphDataset):
         graph.add_nodes(num_nodes)
         graph.add_edges(src, dst)
         graph.add_edges(dst, src)
-        assert all(graph.out_degrees() != 0)
+        # assert all(graph.out_degrees() != 0)
         graph.readonly()
         return graph
 

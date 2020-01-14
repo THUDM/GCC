@@ -2,7 +2,7 @@
 DATE=`date +"%Y%m%d"`
 
 python train_graph_moco.py \
- --exp moco_64 \
+ --exp undirected_seed_small \
  --model_path saved \
  --tb_path tensorboard \
  --model gin \
@@ -18,15 +18,15 @@ python train_graph_moco.py \
  --num-layer 5 \
  --set2set-lstm-layer 1 \
  --set2set-iter 6 \
- --num_workers 48 \
- --num_copies 4 \
+ --num_workers 12 \
+ --num_copies 6 \
  --batch_size 32 \
  --learning_rate 0.005 \
  --num-samples 2000 \
  --norm \
  --nce_t 0.07 \
  --save_freq 1 \
- --tb_freq 500 \
+ --tb_freq 250 \
  --gpu $1 \
  --dataset ${2:-dgl}\
  --epochs 100 \
