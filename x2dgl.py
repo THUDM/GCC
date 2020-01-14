@@ -14,7 +14,7 @@ import argparse
 import pathlib
 import logging
 import torch
-from cogdl.models.emb.prone import ProNE
+#  from cogdl.models.emb.prone import ProNE
 import numpy as np
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
@@ -69,30 +69,40 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
+    todo = set(["ca-DBLP-NetRep.txt.lpm.lscc",
+            "ca-DBLP-SNAP.txtu.lpm.lscc",
+            "ca-IMDB-NetRep.txt.lpm.lscc",
+            "soc-Academia-NetRep.txt.lpm.lscc",
+            "soc-LiveJournal1-d-SNAP.txtu.lpm.lscc",
+            "soc-Facebook1-NetRep.txt.lpm.lscc"
+            ])
+
+    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
+            and graph_file.name in todo]
     #  graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
     #          and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
     #          and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
     #          and graph_file.suffix == '.lscc']
-    graphs = []
-    for name in ["cs", "physics"]:
-        g = Coauthor(name)[0]
-        g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
-        g.readonly()
-        graphs.append(g)
-    for name in ["computers", "photo"]:
-        g = AmazonCoBuy(name)[0]
-        g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
-        g.readonly()
-        graphs.append(g)
+    #  graphs = []
+    #  for name in ["cs", "physics"]:
+    #      g = Coauthor(name)[0]
+    #      g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
+    #      g.readonly()
+    #      graphs.append(g)
+    #  for name in ["computers", "photo"]:
+    #      g = AmazonCoBuy(name)[0]
+    #      g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
+    #      g.readonly()
+    #      graphs.append(g)
     graphs.sort(key=lambda g: g.number_of_nodes(), reverse=True)
     graph_sizes = torch.LongTensor([g.number_of_nodes() for g in graphs])
     for i, g in enumerate(graphs):
         g.ndata.clear()
         g.edata.clear()
-        model = ProNE(args.embed_dim, step=5, mu=0.2, theta=0.5)
-        emb = model.train(g.to_networkx()).astype(np.float32)
-        g.ndata['prone'] = torch.from_numpy(emb)
-        print(i, g)
+        #  model = ProNE(args.embed_dim, step=5, mu=0.2, theta=0.5)
+        #  emb = model.train(g.to_networkx()).astype(np.float32)
+        #  g.ndata['prone'] = torch.from_numpy(emb)
+        print(i, g, graph_sizes[i])
     logger.info("save graphs to %s", args.save_file)
     save_graphs(
             filename=args.save_file,
