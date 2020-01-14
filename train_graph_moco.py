@@ -6,11 +6,13 @@
 # TODO:
 
 import argparse
+import copy
 import os
 import time
 import warnings
 
 import dgl
+from joblib import Parallel, delayed
 import numpy as np
 import psutil
 import torch
@@ -126,9 +128,12 @@ def parse_option():
     parser.add_argument("--alpha", type=float, default=0.999, help="exponential moving average weight")
 
     # GPU setting
-    parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
+    parser.add_argument("--gpu", default=None, type=int, nargs='+', help="GPU id to use.")
+
+    # cross validation
     parser.add_argument("--seed", type=int, default=42, help="random seed.")
     parser.add_argument("--fold-idx", type=int, default=0, help="random seed.")
+    parser.add_argument("--cv", action="store_true")
     # fmt: on
 
     opt = parser.parse_args()
@@ -739,9 +744,6 @@ def main(args):
                 sw,
                 args,
             )
-            valid_loss, valid_f1 = test_finetune(
-                epoch, valid_loader, model, output_layer, criterion, sw, args
-            )
         else:
             loss = train_moco(
                 epoch,
@@ -801,14 +803,12 @@ def main(args):
         # help release GPU memory
         del state
         torch.cuda.empty_cache()
-
-        # if (epoch + 1) % 5 == 0:
-        #     trial.report(-valid_f1, epoch)
-        #     if trial.should_prune():
-        #         raise optuna.exceptions.TrialPruned()
-
-    # return -valid_f1
-    return loss
+    
+    if args.finetune:
+        valid_loss, valid_f1 = test_finetune(
+            epoch, valid_loader, model, output_layer, criterion, sw, args
+        )
+        return valid_f1
 
 
 if __name__ == "__main__":
@@ -816,7 +816,20 @@ if __name__ == "__main__":
     warnings.simplefilter("once", UserWarning)
     args = parse_option()
 
-    main(args)
+    if args.cv:
+        gpus = args.gpu
+        def variant_args_generator():
+            for fold_idx in range(10):
+                args.fold_idx = fold_idx
+                args.num_workers = 4
+                args.gpu = gpus[fold_idx % len(gpus)]
+                yield copy.deepcopy(args)
+        f1 = Parallel(n_jobs=-1)(delayed(main)(args) for args in variant_args_generator())
+        print(f1)
+        print(np.mean(f1))
+    else:
+        args.gpu = args.gpu[0]
+        main(args)
     # import optuna
     # def objective(trial):
     #     args.epochs = 50

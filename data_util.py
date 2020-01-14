@@ -8,7 +8,7 @@
 import numpy as np
 import scipy
 import torch
-import tensorflow as tf
+# import tensorflow as tf
 import io
 import scipy.sparse as sparse
 from scipy.sparse import linalg
