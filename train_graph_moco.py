@@ -86,7 +86,7 @@ def parse_option():
     parser.add_argument("--exp", type=str, default="")
 
     # dataset definition
-    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "collab", "imdb-binary", "imdb-multi"] + GRAPH_CLASSIFICATION_DSETS)
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index-rand20intop200"] + GRAPH_CLASSIFICATION_DSETS)
 
     # model definition
     parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn", "gin"])
