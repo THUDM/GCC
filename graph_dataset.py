@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import torch
 from dgl.data import AmazonCoBuy, Coauthor
 import dgl.data
+from dgl.nodeflow import NodeFlow
 
 from cogdl.datasets import build_dataset
 import data_util
@@ -45,12 +46,15 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             positional_embedding_size=32,
             step_dist=[1.0, 0.0, 0.0],
             num_workers=1,
-            dgl_graphs_file="data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs2.bin",
+            dgl_graphs_file="./data_bin/dgl/small.bin",
             num_samples=10000,
             num_copies=1,
-            graph_transform=None):
+            graph_transform=None,
+            aug="rwr",
+            num_neighbors=5):
         super(LoadBalanceGraphDataset).__init__()
         self.rw_hops = rw_hops
+        self.num_neighbors = num_neighbors
         self.restart_prob = restart_prob
         self.positional_embedding_size = positional_embedding_size
         self.step_dist = step_dist
@@ -77,6 +81,8 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         self.jobs = jobs * num_copies
         self.total = self.num_samples * num_workers
         self.graph_transform = graph_transform
+        assert aug in ("rwr", "ns")
+        self.aug = aug
 
     def __len__(self):
         return self.num_samples * num_workers
@@ -109,11 +115,46 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
                     num_hops=step
                     )[0][0][-1].item()
 
-        traces = dgl.contrib.sampling.random_walk_with_restart(
-            self.graphs[graph_idx],
-            seeds=[node_idx, other_node_idx],
-            restart_prob=self.restart_prob,
-            max_nodes_per_seed=self.rw_hops)
+        if self.aug == 'rwr':
+            traces = dgl.contrib.sampling.random_walk_with_restart(
+                self.graphs[graph_idx],
+                seeds=[node_idx, other_node_idx],
+                restart_prob=self.restart_prob,
+                max_nodes_per_seed=self.rw_hops)
+        elif self.aug == 'ns':
+            prob = dgl.backend.tensor([], dgl.backend.float32)
+            prob = dgl.backend.zerocopy_to_dgl_ndarray(prob)
+            nf1 = dgl.contrib.sampling.sampler._CAPI_NeighborSampling(
+                    self.graphs[graph_idx]._graph,
+                    dgl.utils.toindex([node_idx]).todgltensor(),
+                    0, # batch_start_id
+                    1, # batch_size
+                    1, # workers
+                    self.num_neighbors, # expand_factor
+                    self.rw_hops, # num_hops
+                    'out',
+                    False,
+                    prob)[0]
+            nf1 = NodeFlow(
+                    self.graphs[graph_idx],
+                    nf1)
+            trace1 = [nf1.layer_parent_nid(i) for i in range(nf1.num_layers)]
+            nf2 = dgl.contrib.sampling.sampler._CAPI_NeighborSampling(
+                    self.graphs[graph_idx]._graph,
+                    dgl.utils.toindex([other_node_idx]).todgltensor(),
+                    0, # batch_start_id
+                    1, # batch_size
+                    1, # workers
+                    self.num_neighbors, # expand_factor
+                    self.rw_hops, # num_hops
+                    'out',
+                    False,
+                    prob)[0]
+            nf2 = NodeFlow(
+                    self.graphs[graph_idx],
+                    nf2)
+            trace2 = [nf2.layer_parent_nid(i) for i in range(nf2.num_layers)]
+            traces = [trace1, trace2]
 
         graph_q = data_util._rwr_trace_to_dgl_graph(
                 g=self.graphs[graph_idx],
@@ -206,6 +247,7 @@ class GraphDataset(torch.utils.data.Dataset):
             seeds=[node_idx, other_node_idx],
             restart_prob=self.restart_prob,
             max_nodes_per_seed=self.rw_hops)
+        #  dgl.contrib.sampling.sampler._CAPI_NeighborSampling
 
         graph_q = data_util._rwr_trace_to_dgl_graph(
                 g=self.graphs[graph_idx],
@@ -328,13 +370,13 @@ class CogDLGraphDatasetLabeled(CogDLGraphDataset):
         return graph_q, self.data.y[idx].argmax().item()
 
 if __name__ == '__main__':
-    import horovod.torch as hvd
-    hvd.init()
+    #  import horovod.torch as hvd
+    #  hvd.init()
     num_workers=1
     import psutil
     mem = psutil.virtual_memory()
     print(mem.used/1024**3)
-    graph_dataset = LoadBalanceGraphDataset(num_workers=num_workers)
+    graph_dataset = LoadBalanceGraphDataset(num_workers=num_workers, aug='ns', rw_hops=4, num_neighbors=5)
     mem = psutil.virtual_memory()
     print(mem.used/1024**3)
     graph_loader = torch.utils.data.DataLoader(
@@ -347,7 +389,9 @@ if __name__ == '__main__':
     mem = psutil.virtual_memory()
     print(mem.used/1024**3)
     for step, batch in enumerate(graph_loader):
-        print(batch.graph_q.batch_size)
+        print("bs", batch[0].batch_size)
+        print("n=", batch[0].number_of_nodes())
+        print("m=", batch[0].number_of_edges())
         mem = psutil.virtual_memory()
         print(mem.used/1024**3)
         #  print(batch.graph_q)

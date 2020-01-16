@@ -166,16 +166,17 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
 def eigen_decomposision(n, k, laplacian, hidden_size, retry):
     if k <= 0:
         return torch.zeros(n, hidden_size)
-
+    ncv=min(n, max(2*k + 1, 20))
     for i in range(retry):
         try:
             s, u = linalg.eigsh(
                     laplacian,
                     k=k,
                     which='LA',
-                    ncv=n)
+                    ncv=ncv)
         except sparse.linalg.eigen.arpack.ArpackError:
             print("arpack error, retry=", i)
+            ncv = min(ncv*2, n)
             if i + 1 == retry:
                 sparse.save_npz('arpack_error_sparse_matrix.npz', laplacian)
                 u = torch.zeros(n, k)
