@@ -38,6 +38,7 @@ def parse_option():
     parser.add_argument("--num_workers", type=int, default=16, help="num of workers to use")
     parser.add_argument("--num_copies", type=int, default=1, help="num of dataset copies that fit in memory")
     parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
+    parser.add_argument("--num-neighbors", type=int, default=5, help="num of samples per batch per worker")
     parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
     parser.add_argument("--dgl-graphs-file", type=str,
             #default="./data_bin/dgl/yuxiao_lscc_wo_fb_and_friendster_plus_dgl_built_in_graphs.bin",
@@ -58,7 +59,7 @@ def parse_option():
     parser.add_argument("--resume", default="", type=str, metavar="PATH", help="path to latest checkpoint (default: none)")
 
     # augmentation setting
-    parser.add_argument("--aug", type=str, default="1st", choices=["1st", "2nd", "all"])
+    parser.add_argument("--aug", type=str, default="rwr", choices=["rwr", "ns"])
 
 
     parser.add_argument("--exp", type=str, default="horovod_lstm")

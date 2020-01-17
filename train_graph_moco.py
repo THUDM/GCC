@@ -75,6 +75,7 @@ def parse_option():
     parser.add_argument("--beta2", type=float, default=0.999, help="beta2 for Adam")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="weight decay")
     parser.add_argument("--momentum", type=float, default=0.9, help="momentum")
+    parser.add_argument("--clip-norm", type=float, default=1.0, help="clip norm")
 
     # resume
     parser.add_argument("--resume", default="", type=str, metavar="PATH", help="path to latest checkpoint (default: none)")
@@ -150,7 +151,7 @@ def parse_option():
 
 def option_update(opt):
     prefix = "GMoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{:.4f}_decay_{:.5f}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{:.2f}_optimizer_{}_norm_{}_s2s_lstm_layer_{}_s2s_iter_{}_finetune_{}_seed_{}".format(
+    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{:.4f}_decay_{:.5f}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{:.2f}_optm_{}_norm_{}_s2s_layer_{}_s2s_iter_{}_ft_{}_seed_{}_clip_{}".format(
         prefix,
         opt.exp,
         opt.dataset,
@@ -172,6 +173,7 @@ def option_update(opt):
         opt.set2set_iter,
         opt.finetune,
         opt.seed,
+        opt.clip_norm,
     )
 
     if opt.amp:
@@ -362,6 +364,12 @@ def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
     )
     return epoch_loss_meter.avg, epoch_f1_meter.avg
 
+def clip_grad_norm(params, max_norm):
+	"""Clips gradient norm."""
+	if max_norm > 0:
+		return torch.nn.utils.clip_grad_norm_(params, max_norm)
+	else:
+		return torch.sqrt(sum(p.grad.data.norm()**2 for p in params if p.grad is not None))
 
 def train_moco(
     epoch, train_loader, model, model_ema, contrast, criterion, optimizer, sw, opt
@@ -386,6 +394,7 @@ def train_moco(
     epoch_loss_meter = AverageMeter()
     prob_meter = AverageMeter()
     graph_size = AverageMeter()
+    gnorm_meter = AverageMeter()
     max_num_nodes = 0
     max_num_edges = 0
 
@@ -427,7 +436,9 @@ def train_moco(
                 scaled_loss.backward()
         else:
             loss.backward()
-        torch.nn.utils.clip_grad_value_(model.parameters(), 1)
+		#  torch.nn.utils.clip_grad_value_(model.parameters(), 1)
+        grad_norm = clip_grad_norm(model.parameters(), opt.clip_norm)
+
         optimizer.step()
 
         # ===================meters=====================
@@ -437,6 +448,7 @@ def train_moco(
         graph_size.update(
             (graph_q.number_of_nodes() + graph_k.number_of_nodes()) / 2.0 / bsz, 2 * bsz
         )
+        gnorm_meter.update(grad_norm, 1)
         max_num_nodes = max(max_num_nodes, graph_q.number_of_nodes())
         max_num_edges = max(max_num_edges, graph_q.number_of_edges())
 
@@ -481,12 +493,14 @@ def train_moco(
             sw.add_scalar("graph_size", graph_size.avg, global_step)
             sw.add_scalar("graph_size/max", max_num_nodes, global_step)
             sw.add_scalar("graph_size/max_edges", max_num_edges, global_step)
+            sw.add_scalar("gnorm", gnorm_meter.avg, global_step)
             #  sw.add_scalar(
             #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
             #  )
             loss_meter.reset()
             prob_meter.reset()
             graph_size.reset()
+            gnorm_meter.reset()
             max_num_nodes, max_num_edges = 0, 0
     return epoch_loss_meter.avg
 
@@ -803,7 +817,7 @@ def main(args):
         # help release GPU memory
         del state
         torch.cuda.empty_cache()
-    
+
     if args.finetune:
         valid_loss, valid_f1 = test_finetune(
             epoch, valid_loader, model, output_layer, criterion, sw, args

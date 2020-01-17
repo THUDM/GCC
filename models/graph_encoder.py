@@ -61,7 +61,7 @@ class GraphEncoder(nn.Module):
     ):
         super(GraphEncoder, self).__init__()
 
-        node_input_dim = positional_embedding_size + 1
+        node_input_dim = positional_embedding_size + degree_embedding_size + 1
         # node_input_dim = (
         #     positional_embedding_size + freq_embedding_size + degree_embedding_size + 3
         # )
@@ -95,6 +95,7 @@ class GraphEncoder(nn.Module):
                 learn_eps=False,
                 graph_pooling_type="sum",
                 neighbor_pooling_type="sum",
+                use_selayer=True,
             )
         self.gnn_model = gnn_model
 
@@ -105,9 +106,9 @@ class GraphEncoder(nn.Module):
         # self.node_freq_embedding = nn.Embedding(
         #     num_embeddings=max_node_freq + 1, embedding_dim=freq_embedding_size
         # )
-        # self.degree_embedding = nn.Embedding(
-        #     num_embeddings=max_degree + 1, embedding_dim=degree_embedding_size
-        # )
+        self.degree_embedding = nn.Embedding(
+           num_embeddings=max_degree + 1, embedding_dim=degree_embedding_size
+        )
 
         # self.edge_freq_embedding = nn.Embedding(
         #     num_embeddings=max_edge_freq + 1, embedding_dim=freq_embedding_size
@@ -141,17 +142,17 @@ class GraphEncoder(nn.Module):
         """
 
         # nfreq = g.ndata["nfreq"]
-        # device = g.ndata["seed"].device
-        # degrees = g.in_degrees()
-        # if device != torch.device("cpu"):
-        #     degrees = degrees.cuda(device)
+        device = g.ndata["seed"].device
+        degrees = g.in_degrees()
+        if device != torch.device("cpu"):
+           degrees = degrees.cuda(device)
 
         n_feat = torch.cat(
             (
                 g.ndata["pos_undirected"],
                 # g.ndata["pos_directed"],
                 # self.node_freq_embedding(nfreq.clamp(0, self.max_node_freq)),
-                # self.degree_embedding(degrees.clamp(0, self.max_degree)),
+                self.degree_embedding(degrees.clamp(0, self.max_degree)),
                 g.ndata["seed"].unsqueeze(1).float(),
                 # nfreq.unsqueeze(1).float() / self.max_node_freq,
                 # degrees.unsqueeze(1).float() / self.max_degree,
@@ -175,7 +176,7 @@ class GraphEncoder(nn.Module):
             x = self.set2set(g, x)
             x = self.lin_readout(x)
         if self.norm:
-            x = F.normalize(x, p=2, dim=-1)
+            x = F.normalize(x, p=2, dim=-1, eps=1e-5)
         if return_all_outputs:
             return x, all_outputs
         else:
