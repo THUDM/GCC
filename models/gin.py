@@ -10,14 +10,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch.conv import GINConv
 from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
+import numpy as np
 
+class SELayer(nn.Module):
+    """Squeeze-and-excitation networks"""
+
+    def __init__(self, in_channels, se_channels):
+        super(SELayer, self).__init__()
+
+        self.in_channels = in_channels
+        self.se_channels = se_channels
+
+        self.encoder_decoder = nn.Sequential(
+            nn.Linear(in_channels, se_channels),
+            nn.ELU(),
+            nn.Linear(se_channels, in_channels),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        """"""
+        # Aggregate input representation
+        x_global = torch.mean(x, dim=0)
+        # Compute reweighting vector s
+        s = self.encoder_decoder(x_global)
+
+        return x * s
 
 class ApplyNodeFunc(nn.Module):
     """Update the node feature hv with MLP, BN and ReLU."""
-    def __init__(self, mlp):
+    def __init__(self, mlp, use_selayer):
         super(ApplyNodeFunc, self).__init__()
         self.mlp = mlp
-        self.bn = nn.BatchNorm1d(self.mlp.output_dim)
+        self.bn = SELayer(self.mlp.output_dim, int(np.sqrt(self.mlp.output_dim))) \
+			if use_selayer else nn.BatchNorm1d(self.mlp.output_dim)
 
     def forward(self, h):
         h = self.mlp(h)
@@ -28,7 +54,7 @@ class ApplyNodeFunc(nn.Module):
 
 class MLP(nn.Module):
     """MLP with linear output"""
-    def __init__(self, num_layers, input_dim, hidden_dim, output_dim):
+    def __init__(self, num_layers, input_dim, hidden_dim, output_dim, use_selayer):
         """MLP layers construction
 
         Paramters
@@ -65,7 +91,7 @@ class MLP(nn.Module):
             self.linears.append(nn.Linear(hidden_dim, output_dim))
 
             for layer in range(num_layers - 1):
-                self.batch_norms.append(nn.BatchNorm1d((hidden_dim)))
+                self.batch_norms.append(SELayer(hidden_dim, int(np.sqrt(hidden_dim))) if use_selayer else nn.BatchNorm1d(hidden_dim))
 
     def forward(self, x):
         if self.linear_or_not:
@@ -83,7 +109,7 @@ class UnsupervisedGIN(nn.Module):
     """GIN model"""
     def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim,
                  output_dim, final_dropout, learn_eps, graph_pooling_type,
-                 neighbor_pooling_type):
+                 neighbor_pooling_type, use_selayer):
         """model parameters setting
 
         Paramters
@@ -119,13 +145,13 @@ class UnsupervisedGIN(nn.Module):
 
         for layer in range(self.num_layers - 1):
             if layer == 0:
-                mlp = MLP(num_mlp_layers, input_dim, hidden_dim, hidden_dim)
+                mlp = MLP(num_mlp_layers, input_dim, hidden_dim, hidden_dim, use_selayer)
             else:
-                mlp = MLP(num_mlp_layers, hidden_dim, hidden_dim, hidden_dim)
+                mlp = MLP(num_mlp_layers, hidden_dim, hidden_dim, hidden_dim, use_selayer)
 
             self.ginlayers.append(
-                GINConv(ApplyNodeFunc(mlp), neighbor_pooling_type, 0, self.learn_eps))
-            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+                GINConv(ApplyNodeFunc(mlp, use_selayer), neighbor_pooling_type, 0, self.learn_eps))
+            self.batch_norms.append(SELayer(hidden_dim, int(np.sqrt(hidden_dim))) if use_selayer else nn.BatchNorm1d(hidden_dim))
 
         # Linear function for graph poolings of output of each layer
         # which maps the output of different layers into a prediction score
