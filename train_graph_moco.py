@@ -132,7 +132,7 @@ def parse_option():
     parser.add_argument("--gpu", default=None, type=int, nargs='+', help="GPU id to use.")
 
     # cross validation
-    parser.add_argument("--seed", type=int, default=42, help="random seed.")
+    parser.add_argument("--seed", type=int, default=0, help="random seed.")
     parser.add_argument("--fold-idx", type=int, default=0, help="random seed.")
     parser.add_argument("--cv", action="store_true")
     # fmt: on
@@ -757,6 +757,9 @@ def main(args):
                 output_layer_optimizer,
                 sw,
                 args,
+            )
+            valid_loss, valid_f1 = test_finetune(
+                epoch, valid_loader, model, output_layer, criterion, sw, args
             )
         else:
             loss = train_moco(
