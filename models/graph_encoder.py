@@ -95,7 +95,7 @@ class GraphEncoder(nn.Module):
                 learn_eps=False,
                 graph_pooling_type="sum",
                 neighbor_pooling_type="sum",
-                use_selayer=True,
+                use_selayer=False,
             )
         self.gnn_model = gnn_model
 
