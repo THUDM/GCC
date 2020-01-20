@@ -19,6 +19,8 @@ from cogdl.datasets import build_dataset
 import data_util
 import horovod.torch as hvd
 
+GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi", "rdt-b", "rdt-5k"]
+
 
 def worker_init_fn(worker_id):
     worker_info = torch.utils.data.get_worker_info()
@@ -253,12 +255,16 @@ class GraphDataset(torch.utils.data.Dataset):
                 g=self.graphs[graph_idx],
                 seed=node_idx,
                 trace=traces[0],
-                positional_embedding_size=self.positional_embedding_size)
+                positional_embedding_size=self.positional_embedding_size,
+                entire_graph=hasattr(self, "entire_graph") and self.entire_graph
+                )
         graph_k = data_util._rwr_trace_to_dgl_graph(
                 g=self.graphs[graph_idx],
                 seed=other_node_idx,
                 trace=traces[1],
-                positional_embedding_size=self.positional_embedding_size)
+                positional_embedding_size=self.positional_embedding_size,
+                entire_graph=hasattr(self, "entire_graph") and self.entire_graph
+                )
         return graph_q, graph_k
 
 
@@ -300,6 +306,7 @@ class CogDLGraphClassificationDataset(CogDLGraphDataset):
         self.restart_prob = restart_prob
         self.positional_embedding_size = positional_embedding_size
         self.step_dist = step_dist
+        self.entire_graph = True
         assert(positional_embedding_size > 1)
 
         class tmp():
@@ -322,6 +329,7 @@ class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
     def __init__(self, dataset, rw_hops=64, subgraph_size=64, restart_prob=0.8, positional_embedding_size=32, step_dist=[1.0, 0.0, 0.0]):
         super(CogDLGraphClassificationDatasetLabeled, self).__init__(dataset, rw_hops, subgraph_size, restart_prob, positional_embedding_size, step_dist)
         self.num_classes = self.dataset.data.y.max().item() + 1
+        self.entire_graph = True
 
     def __getitem__(self, idx):
         graph_idx = idx

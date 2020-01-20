@@ -119,15 +119,17 @@ def _edge_subgraph(trace, seed):
     subg.add_edges(u_list, v_list)
     return subg
 
-def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
+def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size, entire_graph=False):
     subv = torch.unique(torch.cat(trace)).tolist()
     try:
         subv.remove(seed)
     except ValueError:
         pass
     subv = [seed] + subv
-    subg = g.subgraph(subv)
-    # subg = g.subgraph(g.nodes())
+    if entire_graph:
+        subg = g.subgraph(g.nodes())
+    else:
+        subg = g.subgraph(subv)
     # assert subg.parent_nid[0] == seed, "by construction, node 0 in subgraph should be the seed"
 
     subg = _add_undirected_graph_positional_embedding(subg, positional_embedding_size)
@@ -159,8 +161,10 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size):
     # subg.edata['efreq'] = efreq
 
     subg.ndata['seed'] = torch.zeros(subg.number_of_nodes(), dtype=torch.long)
-    subg.ndata['seed'][0] = 1
-    # subg.ndata['seed'][seed] = 1
+    if entire_graph:
+        subg.ndata['seed'][seed] = 1
+    else:
+        subg.ndata['seed'][0] = 1
     return subg
 
 def eigen_decomposision(n, k, laplacian, hidden_size, retry):

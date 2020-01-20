@@ -25,7 +25,8 @@ from models.graph_encoder import GraphEncoder
 from models.mpnn import UnsupervisedMPNN
 from NCE.NCEAverage import MemoryMoCo
 from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
-from train_graph_moco import option_update, parse_option, GRAPH_CLASSIFICATION_DSETS
+from train_graph_moco import option_update, parse_option
+from graph_dataset import GRAPH_CLASSIFICATION_DSETS
 from util import AverageMeter, adjust_learning_rate
 
 

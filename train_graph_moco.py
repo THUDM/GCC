@@ -11,23 +11,23 @@ import os
 import time
 import warnings
 
-import dgl
-from joblib import Parallel, delayed
 import numpy as np
 import psutil
 import torch
 import torch.nn as nn
+from joblib import Parallel, delayed
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import StratifiedKFold
-
 from torch.utils.tensorboard import SummaryWriter
 
 import data_util
+import dgl
 from graph_dataset import (
-    CogDLGraphDataset,
-    CogDLGraphDatasetLabeled,
+    GRAPH_CLASSIFICATION_DSETS,
     CogDLGraphClassificationDataset,
     CogDLGraphClassificationDatasetLabeled,
+    CogDLGraphDataset,
+    CogDLGraphDatasetLabeled,
     GraphDataset,
     LoadBalanceGraphDataset,
     worker_init_fn,
@@ -42,8 +42,6 @@ import resource
 
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
-
-GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi", "rdt-b", "rdt-5k"]
 
 
 def parse_option():
@@ -86,7 +84,7 @@ def parse_option():
     parser.add_argument("--model", type=str, default="gin", choices=["gat", "mpnn", "gin"])
     # other possible choices: ggnn, mpnn, graphsage ...
     parser.add_argument("--num-layer", type=int, default=5, help="gnn layers")
-    parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
+    parser.add_argument("--readout", type=str, default="avg", choices=["avg", "set2set"])
     parser.add_argument("--set2set-lstm-layer", type=int, default=3, help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
     parser.add_argument("--norm", action="store_true", default=True, help="apply 2-norm on output feats")
@@ -286,8 +284,8 @@ def train_finetune(
 
         # tensorboard logger
         if (idx + 1) % opt.tb_freq == 0:
-            sw.add_scalar("moco_loss", loss_meter.avg, global_step)
-            sw.add_scalar("moco_f1", f1_meter.avg, global_step)
+            sw.add_scalar("ft_loss", loss_meter.avg, global_step)
+            sw.add_scalar("ft_f1", f1_meter.avg, global_step)
             sw.add_scalar("graph_size", graph_size.avg, global_step)
             sw.add_scalar("lr", lr_this_step, global_step)
             sw.add_scalar("graph_size/max", max_num_nodes, global_step)
@@ -334,8 +332,8 @@ def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
         epoch_f1_meter.update(f1, bsz)
 
     global_step = (epoch + 1) * n_batch
-    sw.add_scalar("moco_loss/valid", epoch_loss_meter.avg, global_step)
-    sw.add_scalar("moco_f1/valid", epoch_f1_meter.avg, global_step)
+    sw.add_scalar("ft_loss/valid", epoch_loss_meter.avg, global_step)
+    sw.add_scalar("ft_f1/valid", epoch_f1_meter.avg, global_step)
     print(
         f"Epoch {epoch}, loss {epoch_loss_meter.avg:.3f}, f1 {epoch_f1_meter.avg:.3f}"
     )

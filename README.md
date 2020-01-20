@@ -1,4 +1,4 @@
-# GraphMoco
+# GCC: Graph Contrastive Coding
 
 ## Installation
 
@@ -72,8 +72,6 @@ Generate embeddings on multiple datasets with
 ```bash
 bash scripts/generate.sh <gpu> <load_path> <dataset_1> <dataset_2> ...
 ```
-
-TODO: Modify `_rwr_trace_to_dgl_graph` in `data_util.py` to load entire graphs.
 
 For example:
 
