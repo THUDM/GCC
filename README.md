@@ -29,10 +29,16 @@ python x2dgl.py --graph-dir data_bin/kdd17 --save-file data_bin/dgl/graphs.bin
 
 ## Pretraining
 
-Run negative sampling (number of negative samples = batch_size - 1, default to 32)
+Run negative sampling (number negative samples = batch_size - 1, default to 32)
 
 ```
 bash scripts/pretrain.sh <gpu>
+```
+
+Run negative sampling with larger batch size (and negative sample size)
+
+```
+bash scripts/pretrain.sh <gpu> --batch-size 256
 ```
 
 Run moco with queue size = 32:
@@ -44,7 +50,7 @@ bash scripts/pretrain.sh <gpu> --moco
 Run moco with larger queue size:
 
 ```
-bash scripts/pretrain.sh <gpu> --moco --nce-k 16384
+bash scripts/pretrain.sh <gpu> --moco --nce-k 256
 ```
 
 Run with larger model hidden size:

@@ -34,7 +34,7 @@ from graph_dataset import (
 )
 from models.graph_encoder import GraphEncoder
 from NCE.NCEAverage import MemoryMoCo
-from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
+from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss, NCESoftmaxLossNS
 from util import AverageMeter, adjust_learning_rate, warmup_linear
 
 # https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
@@ -139,14 +139,16 @@ def parse_option():
 
 
 def option_update(opt):
-    opt.model_name = "{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_rw_hops_{}_restart_prob_{}_aug_{}_ft_{}".format(
+    opt.model_name = "{}_moco_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_hid_{}_samples_{}_nce_t_{}_nce_k_{}_rw_hops_{}_restart_prob_{}_aug_{}_ft_{}".format(
         opt.exp,
+        opt.moco,
         opt.dataset,
         opt.model,
         opt.num_layer,
         opt.learning_rate,
         opt.weight_decay,
         opt.batch_size,
+        opt.hidden_size,
         opt.num_samples,
         opt.nce_t,
         opt.nce_k,
@@ -387,33 +389,29 @@ def train_moco(
 
         bsz = graph_q.batch_size
 
-        # ===================forward=====================
-
-        feat_q = model(graph_q)
         if opt.moco:
+            # ===================Moco forward=====================
+            feat_q = model(graph_q)
             with torch.no_grad():
                 feat_k = model_ema(graph_k)
-        else:
-            # end-to-end by back-propagation (the two encoders can be different).
-            feat_k = model_ema(graph_k)
 
-        if opt.readout == "root":
-            feat_q = feat_q[batch.graph_q_roots]
-            feat_k = feat_k[batch.graph_k_roots]
+            out = contrast(feat_q, feat_k)
+            prob = out[:, 0].mean()
+        else:
+            # ===================Negative sampling forward=====================
+            feat_q = model(graph_q)
+            feat_k = model(graph_k)
+
+            out = torch.matmul(feat_k, feat_q.t()) / opt.nce_t
+            prob = out[range(graph_q.batch_size), range(graph_q.batch_size)].mean()
 
         assert feat_q.shape == (graph_q.batch_size, opt.hidden_size)
 
-        out = contrast(feat_q, feat_k)
-
-        loss = criterion(out)
-        prob = out[:, 0].mean()
-
         # ===================backward=====================
         optimizer.zero_grad()
+        loss = criterion(out)
         loss.backward()
-        #  torch.nn.utils.clip_grad_value_(model.parameters(), 1)
         grad_norm = clip_grad_norm(model.parameters(), opt.clip_norm)
-
         optimizer.step()
 
         # ===================meters=====================
@@ -613,7 +611,7 @@ def main(args):
     if args.finetune:
         criterion = nn.CrossEntropyLoss()
     else:
-        criterion = NCESoftmaxLoss()
+        criterion = NCESoftmaxLoss() if args.moco else NCESoftmaxLossNS()
         criterion = criterion.cuda(args.gpu)
 
     model = model.cuda(args.gpu)
