@@ -67,47 +67,57 @@ bash scripts/pretrain.sh ... --degree-input
 
 ## Downstream Tasks
 
-TODO: modify `scripts/test_gin.sh` to load a pretrained model
+Generate embeddings on multiple datasets with
+
+```bash
+bash scripts/generate.sh <gpu> <load_path> <dataset_1> <dataset_2> ...
+```
+
+TODO: Modify `_rwr_trace_to_dgl_graph` in `data_util.py` to load entire graphs.
+
+For example:
+
+```bash
+bash scripts/generate.sh 0 saved/Pretrain_moco_True_dgl_gin_layer_5_lr_0.005_decay_1e-05_bsz_32_samples_2000_nce_t_0.07_nce_k_32_rw_hops_256_restart_prob_0.8_aug_1st_ft_False/current.pth usa_airport kdd imdb-binary
+```
 
 ### Node Classification
 
 #### NC Unsupervised
 
-TODO: Run baselines
+Run baselines on all datasets with `bash scripts/node_classification/baseline.sh <hidden_size> prone graphwave`.
 
-```
-bash scripts/test_node_classification.sh
+Run ours on multiple datasets:
+
+```bash
+bash scripts/generate.sh <gpu> <load_path> usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
+bash scripts/node_classification/ours.sh <hidden_size> usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
 ```
 
 #### NC Supervised
+
+TODO
 
 ### Graph Classification
 
 #### GC Unsupervised
 
-TODO: Modify `_rwr_trace_to_dgl_graph` `data_util.py` to load entire graphs.
-
-```
-bash scripts/test_graph_classification.sh
+```bash
+bash scripts/generate.sh <gpu> <load_path> imdb-binary imdb-multi collab rdt-b rdt-5k
+bash scripts/graph_classification/ours.sh <hidden_size> imdb-binary imdb-multi collab rdt-b rdt-5k
 ```
 
 #### GC Supervised
 
+TODO
+
 ### Similarity Search
+
+Run baselines on all datasets with `bash scripts/similarity_search/baseline.sh <hidden_size> graphwave`.
 
 TODO: Search proper checkpoint
 
+```bash
+bash scripts/generate.sh <gpu> <load_path> kdd icdm sigir cikm sigmod icde
+bash scripts/similarity_search/ours.sh <hidden_size> kdd_icdm sigir_cikm sigmod_icde
 ```
-bash scripts/test_matching.sh
-```
-
-<!-- ## horovod
-
-Install horovod with 
-```
-pip install horovod
-```
-
-```
-horovodrun -np 4 -H localhost:4 python horovod_train_graph_moco.py --softmax --norm --moco
-``` -->
