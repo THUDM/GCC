@@ -8,7 +8,7 @@
 
 https://github.com/rusty1s/pytorch_geometric/#installation
 
-## Install DGL with CUDA
+### Install DGL with CUDA
 
 https://www.dgl.ai/pages/start.html
 
