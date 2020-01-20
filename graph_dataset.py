@@ -5,6 +5,7 @@
 # Create Time: 2019/12/11 12:17
 # TODO:
 
+import math
 import numpy as np
 import operator
 import dgl
@@ -90,7 +91,10 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         return self.num_samples * num_workers
 
     def __iter__(self):
-        samples = np.random.randint(low=0, high=self.length, size=self.num_samples)
+        #  samples = np.random.randint(low=0, high=self.length, size=self.num_samples)
+        degrees = torch.cat([g.in_degrees().double() ** 0.75 for g in self.graphs])
+        prob = degrees / torch.sum(degrees)
+        samples = np.random.choice(self.length, size=self.num_samples, replace=True, p=prob.numpy())
         for idx in samples:
             yield self.__getitem__(idx)
 
@@ -118,11 +122,14 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
                     )[0][0][-1].item()
 
         if self.aug == 'rwr':
+            max_nodes_per_seed = max(self.rw_hops,
+                    int(((self.graphs[graph_idx].in_degree(node_idx) ** 0.75) * math.e / (math.e-1) / self.restart_prob) + 0.5)
+                    )
             traces = dgl.contrib.sampling.random_walk_with_restart(
                 self.graphs[graph_idx],
                 seeds=[node_idx, other_node_idx],
                 restart_prob=self.restart_prob,
-                max_nodes_per_seed=self.rw_hops)
+                max_nodes_per_seed=max_nodes_per_seed)
         elif self.aug == 'ns':
             prob = dgl.backend.tensor([], dgl.backend.float32)
             prob = dgl.backend.zerocopy_to_dgl_ndarray(prob)

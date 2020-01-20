@@ -102,7 +102,9 @@ def parse_option():
     parser.add_argument("--positional-embedding-size", type=int, default=32)
     parser.add_argument("--max-node-freq", type=int, default=16)
     parser.add_argument("--max-edge-freq", type=int, default=16)
+    parser.add_argument("--max-degree", type=int, default=512)
     parser.add_argument("--freq-embedding-size", type=int, default=16)
+    parser.add_argument("--degree-embedding-size", type=int, default=16)
 
     # specify folder
     parser.add_argument("--model-path", type=str, default=None, help="path to save model")
@@ -583,7 +585,9 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
             max_node_freq=args.max_node_freq,
             max_edge_freq=args.max_edge_freq,
+            max_degree=args.max_degree,
             freq_embedding_size=args.freq_embedding_size,
+            degree_embedding_size=args.degree_embedding_size,
             output_dim=args.hidden_size,
             node_hidden_dim=args.hidden_size,
             edge_hidden_dim=args.hidden_size,
