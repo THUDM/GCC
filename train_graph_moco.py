@@ -43,12 +43,6 @@ import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
 
-try:
-    from apex import amp, optimizers
-except ImportError:
-    pass
-
-
 GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi", "rdt-b", "rdt-5k"]
 
 
@@ -57,23 +51,23 @@ def parse_option():
     # fmt: off
     parser = argparse.ArgumentParser("argument for training")
 
-    parser.add_argument("--print_freq", type=int, default=10, help="print frequency")
-    parser.add_argument("--tb_freq", type=int, default=500, help="tb frequency")
-    parser.add_argument("--save_freq", type=int, default=10, help="save frequency")
-    parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
-    parser.add_argument("--num_workers", type=int, default=32, help="num of workers to use")
-    parser.add_argument("--num_copies", type=int, default=1, help="num of dataset copies that fit in memory")
-    parser.add_argument("--num-samples", type=int, default=10000, help="num of samples per batch per worker")
-    parser.add_argument("--epochs", type=int, default=60, help="number of training epochs")
+    parser.add_argument("--print-freq", type=int, default=10, help="print frequency")
+    parser.add_argument("--tb-freq", type=int, default=250, help="tb frequency")
+    parser.add_argument("--save-freq", type=int, default=1, help="save frequency")
+    parser.add_argument("--batch-size", type=int, default=32, help="batch_size")
+    parser.add_argument("--num-workers", type=int, default=12, help="num of workers to use")
+    parser.add_argument("--num-copies", type=int, default=6, help="num of dataset copies that fit in memory")
+    parser.add_argument("--num-samples", type=int, default=2000, help="num of samples per batch per worker")
+    parser.add_argument("--epochs", type=int, default=100, help="number of training epochs")
 
     # optimization
-    parser.add_argument("--optimizer", type=str, default='sgd', choices=['sgd', 'adam', 'adagrad'], help="optimizer")
+    parser.add_argument("--optimizer", type=str, default='adam', choices=['sgd', 'adam', 'adagrad'], help="optimizer")
     parser.add_argument("--learning_rate", type=float, default=0.005, help="learning rate")
     parser.add_argument("--lr_decay_epochs", type=str, default="120,160,200", help="where to decay lr, can be a list")
     parser.add_argument("--lr_decay_rate", type=float, default=0.0, help="decay rate for learning rate")
     parser.add_argument("--beta1", type=float, default=0.9, help="beta1 for adam")
     parser.add_argument("--beta2", type=float, default=0.999, help="beta2 for Adam")
-    parser.add_argument("--weight_decay", type=float, default=1e-4, help="weight decay")
+    parser.add_argument("--weight-decay", type=float, default=1e-5, help="weight decay")
     parser.add_argument("--momentum", type=float, default=0.9, help="momentum")
     parser.add_argument("--clip-norm", type=float, default=1.0, help="clip norm")
 
@@ -83,32 +77,29 @@ def parse_option():
     # augmentation setting
     parser.add_argument("--aug", type=str, default="1st", choices=["1st", "2nd", "all"])
 
-    parser.add_argument("--amp", action="store_true", help="using mixed precision")
-    parser.add_argument("--opt_level", type=str, default="O2", choices=["O1", "O2"])
-
     parser.add_argument("--exp", type=str, default="")
 
     # dataset definition
     parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index-rand20intop200"] + GRAPH_CLASSIFICATION_DSETS)
 
     # model definition
-    parser.add_argument("--model", type=str, default="gcn", choices=["gat", "mpnn", "gin"])
+    parser.add_argument("--model", type=str, default="gin", choices=["gat", "mpnn", "gin"])
     # other possible choices: ggnn, mpnn, graphsage ...
-    parser.add_argument("--num-layer", type=int, default=2, help="gnn layers")
+    parser.add_argument("--num-layer", type=int, default=5, help="gnn layers")
     parser.add_argument("--readout", type=str, default="avg", choices=["root", "avg", "set2set"])
     parser.add_argument("--set2set-lstm-layer", type=int, default=3, help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
-    parser.add_argument("--norm", action="store_true", help="apply 2-norm on output feats")
+    parser.add_argument("--norm", action="store_true", default=True, help="apply 2-norm on output feats")
+    parser.add_argument("--degree-input", action="store_true", help="concat node degree embeddings to input features")
 
     # loss function
-    parser.add_argument("--softmax", action="store_true", help="using softmax contrastive loss rather than NCE")
-    parser.add_argument("--nce_k", type=int, default=16384)
-    parser.add_argument("--nce_t", type=float, default=100)
+    parser.add_argument("--nce-k", type=int, default=32)
+    parser.add_argument("--nce-t", type=float, default=0.07)
 
     # random walk
-    parser.add_argument("--rw-hops", type=int, default=2048)
+    parser.add_argument("--rw-hops", type=int, default=256)
     parser.add_argument("--subgraph-size", type=int, default=128)
-    parser.add_argument("--restart-prob", type=float, default=0.6)
+    parser.add_argument("--restart-prob", type=float, default=0.8)
     parser.add_argument("--hidden-size", type=int, default=64)
     parser.add_argument("--positional-embedding-size", type=int, default=32)
     parser.add_argument("--max-node-freq", type=int, default=16)
@@ -116,8 +107,8 @@ def parse_option():
     parser.add_argument("--freq-embedding-size", type=int, default=16)
 
     # specify folder
-    parser.add_argument("--model_path", type=str, default=None, help="path to save model")
-    parser.add_argument("--tb_path", type=str, default=None, help="path to tensorboard")
+    parser.add_argument("--model-path", type=str, default=None, help="path to save model")
+    parser.add_argument("--tb-path", type=str, default=None, help="path to tensorboard")
     parser.add_argument("--load-path", type=str, default=None, help="loading checkpoint at test time")
 
     # memory setting
@@ -144,18 +135,13 @@ def parse_option():
     for it in iterations:
         opt.lr_decay_epochs.append(int(it))
 
-    opt.method = "softmax" if opt.softmax else "nce"
-
     return opt
 
 
 def option_update(opt):
-    prefix = "GMoCo{}".format(opt.alpha)
-    opt.model_name = "{}_{}_{}_{}_{}_layer_{}_lr_{:.4f}_decay_{:.5f}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_readout_{}_rw_hops_{}_restart_prob_{:.2f}_optm_{}_norm_{}_s2s_layer_{}_s2s_iter_{}_ft_{}_seed_{}_clip_{}".format(
-        prefix,
+    opt.model_name = "{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_samples_{}_nce_t_{}_nce_k_{}_rw_hops_{}_restart_prob_{}_aug_{}_ft_{}".format(
         opt.exp,
         opt.dataset,
-        opt.method,
         opt.model,
         opt.num_layer,
         opt.learning_rate,
@@ -164,22 +150,11 @@ def option_update(opt):
         opt.num_samples,
         opt.nce_t,
         opt.nce_k,
-        opt.readout,
         opt.rw_hops,
         opt.restart_prob,
-        opt.optimizer,
-        opt.norm,
-        opt.set2set_lstm_layer,
-        opt.set2set_iter,
+        opt.aug,
         opt.finetune,
-        opt.seed,
-        opt.clip_norm,
     )
-
-    if opt.amp:
-        opt.model_name = "{}_amp_{}".format(opt.model_name, opt.opt_level)
-
-    opt.model_name = "{}_aug_{}".format(opt.model_name, opt.aug)
 
     if opt.load_path is None:
         opt.model_folder = os.path.join(opt.model_path, opt.model_name)
@@ -364,12 +339,16 @@ def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
     )
     return epoch_loss_meter.avg, epoch_f1_meter.avg
 
+
 def clip_grad_norm(params, max_norm):
-	"""Clips gradient norm."""
-	if max_norm > 0:
-		return torch.nn.utils.clip_grad_norm_(params, max_norm)
-	else:
-		return torch.sqrt(sum(p.grad.data.norm()**2 for p in params if p.grad is not None))
+    """Clips gradient norm."""
+    if max_norm > 0:
+        return torch.nn.utils.clip_grad_norm_(params, max_norm)
+    else:
+        return torch.sqrt(
+            sum(p.grad.data.norm() ** 2 for p in params if p.grad is not None)
+        )
+
 
 def train_moco(
     epoch, train_loader, model, model_ema, contrast, criterion, optimizer, sw, opt
@@ -431,12 +410,8 @@ def train_moco(
 
         # ===================backward=====================
         optimizer.zero_grad()
-        if opt.amp:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
-		#  torch.nn.utils.clip_grad_value_(model.parameters(), 1)
+        loss.backward()
+        #  torch.nn.utils.clip_grad_value_(model.parameters(), 1)
         grad_norm = clip_grad_norm(model.parameters(), opt.clip_norm)
 
         optimizer.step()
@@ -607,34 +582,24 @@ def main(args):
     # n_data = train_dataset.total
     n_data = None
 
-    model = GraphEncoder(
-        positional_embedding_size=args.positional_embedding_size,
-        max_node_freq=args.max_node_freq,
-        max_edge_freq=args.max_edge_freq,
-        freq_embedding_size=args.freq_embedding_size,
-        output_dim=args.hidden_size,
-        node_hidden_dim=args.hidden_size,
-        edge_hidden_dim=args.hidden_size,
-        num_layers=args.num_layer,
-        num_step_set2set=args.set2set_iter,
-        num_layer_set2set=args.set2set_lstm_layer,
-        norm=args.norm,
-        gnn_model=args.model,
-    )
-    model_ema = GraphEncoder(
-        positional_embedding_size=args.positional_embedding_size,
-        max_node_freq=args.max_node_freq,
-        max_edge_freq=args.max_edge_freq,
-        freq_embedding_size=args.freq_embedding_size,
-        output_dim=args.hidden_size,
-        node_hidden_dim=args.hidden_size,
-        edge_hidden_dim=args.hidden_size,
-        num_layers=args.num_layer,
-        num_step_set2set=args.set2set_iter,
-        num_layer_set2set=args.set2set_lstm_layer,
-        norm=args.norm,
-        gnn_model=args.model,
-    )
+    model, model_ema = [
+        GraphEncoder(
+            positional_embedding_size=args.positional_embedding_size,
+            max_node_freq=args.max_node_freq,
+            max_edge_freq=args.max_edge_freq,
+            freq_embedding_size=args.freq_embedding_size,
+            output_dim=args.hidden_size,
+            node_hidden_dim=args.hidden_size,
+            edge_hidden_dim=args.hidden_size,
+            num_layers=args.num_layer,
+            num_step_set2set=args.set2set_iter,
+            num_layer_set2set=args.set2set_lstm_layer,
+            norm=args.norm,
+            gnn_model=args.model,
+            degree_input=args.degree_input,
+        )
+        for _ in range(2)
+    ]
 
     # copy weights from `model' to `model_ema'
     if args.moco:
@@ -642,14 +607,13 @@ def main(args):
 
     # set the contrast memory and criterion
     contrast = MemoryMoCo(
-        args.hidden_size, n_data, args.nce_k, args.nce_t, args.softmax
+        args.hidden_size, n_data, args.nce_k, args.nce_t, use_softmax=True
     ).cuda(args.gpu)
 
-    assert args.softmax
     if args.finetune:
         criterion = nn.CrossEntropyLoss()
     else:
-        criterion = NCESoftmaxLoss() if args.softmax else NCECriterion(n_data)
+        criterion = NCESoftmaxLoss()
         criterion = criterion.cuda(args.gpu)
 
     model = model.cuda(args.gpu)
@@ -698,10 +662,6 @@ def main(args):
     else:
         raise NotImplementedError
 
-    # set mixed precision
-    if args.amp:
-        model, optimizer = amp.initialize(model, optimizer, opt_level=args.opt_level)
-
     # optionally resume from a checkpoint
     args.start_epoch = 1
     if args.resume:
@@ -715,10 +675,6 @@ def main(args):
             contrast.load_state_dict(checkpoint["contrast"])
             if args.moco:
                 model_ema.load_state_dict(checkpoint["model_ema"])
-
-            if args.amp and checkpoint["opt"].amp:
-                print("==> resuming amp state_dict")
-                amp.load_state_dict(checkpoint["amp"])
 
             print(
                 "=> loaded successfully '{}' (epoch {})".format(
@@ -788,8 +744,6 @@ def main(args):
             }
             if args.moco:
                 state["model_ema"] = model_ema.state_dict()
-            if args.amp:
-                state["amp"] = amp.state_dict()
             save_file = os.path.join(
                 args.model_folder, "ckpt_epoch_{epoch}.pth".format(epoch=epoch)
             )
@@ -808,8 +762,6 @@ def main(args):
         }
         if args.moco:
             state["model_ema"] = model_ema.state_dict()
-        if args.amp:
-            state["amp"] = amp.state_dict()
         save_file = os.path.join(args.model_folder, "current.pth")
         torch.save(state, save_file)
         if epoch % args.save_freq == 0:
@@ -835,13 +787,17 @@ if __name__ == "__main__":
 
     if args.cv:
         gpus = args.gpu
+
         def variant_args_generator():
             for fold_idx in range(10):
                 args.fold_idx = fold_idx
                 args.num_workers = 4
                 args.gpu = gpus[fold_idx % len(gpus)]
                 yield copy.deepcopy(args)
-        f1 = Parallel(n_jobs=-1)(delayed(main)(args) for args in variant_args_generator())
+
+        f1 = Parallel(n_jobs=-1)(
+            delayed(main)(args) for args in variant_args_generator()
+        )
         print(f1)
         print(np.mean(f1))
     else:

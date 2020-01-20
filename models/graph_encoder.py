@@ -57,11 +57,15 @@ class GraphEncoder(nn.Module):
         num_layer_set2set=3,
         norm=False,
         gnn_model="mpnn",
+        degree_input=False,
         lstm_as_gate=False,
     ):
         super(GraphEncoder, self).__init__()
 
-        node_input_dim = positional_embedding_size + degree_embedding_size + 1
+        if degree_input:
+            node_input_dim = positional_embedding_size + degree_embedding_size + 1
+        else:
+            node_input_dim = positional_embedding_size + 1
         # node_input_dim = (
         #     positional_embedding_size + freq_embedding_size + degree_embedding_size + 3
         # )
@@ -102,13 +106,15 @@ class GraphEncoder(nn.Module):
         self.max_node_freq = max_node_freq
         self.max_edge_freq = max_edge_freq
         self.max_degree = max_degree
+        self.degree_input = degree_input
 
         # self.node_freq_embedding = nn.Embedding(
         #     num_embeddings=max_node_freq + 1, embedding_dim=freq_embedding_size
         # )
-        self.degree_embedding = nn.Embedding(
-           num_embeddings=max_degree + 1, embedding_dim=degree_embedding_size
-        )
+        if degree_input:
+            self.degree_embedding = nn.Embedding(
+                num_embeddings=max_degree + 1, embedding_dim=degree_embedding_size
+            )
 
         # self.edge_freq_embedding = nn.Embedding(
         #     num_embeddings=max_edge_freq + 1, embedding_dim=freq_embedding_size
@@ -142,23 +148,33 @@ class GraphEncoder(nn.Module):
         """
 
         # nfreq = g.ndata["nfreq"]
-        device = g.ndata["seed"].device
-        degrees = g.in_degrees()
-        if device != torch.device("cpu"):
-           degrees = degrees.cuda(device)
+        if self.degree_input:
+            device = g.ndata["seed"].device
+            degrees = g.in_degrees()
+            if device != torch.device("cpu"):
+                degrees = degrees.cuda(device)
 
-        n_feat = torch.cat(
-            (
-                g.ndata["pos_undirected"],
-                # g.ndata["pos_directed"],
-                # self.node_freq_embedding(nfreq.clamp(0, self.max_node_freq)),
-                self.degree_embedding(degrees.clamp(0, self.max_degree)),
-                g.ndata["seed"].unsqueeze(1).float(),
-                # nfreq.unsqueeze(1).float() / self.max_node_freq,
-                # degrees.unsqueeze(1).float() / self.max_degree,
-            ),
-            dim=-1,
-        )
+            n_feat = torch.cat(
+                (
+                    g.ndata["pos_undirected"],
+                    self.degree_embedding(degrees.clamp(0, self.max_degree)),
+                    g.ndata["seed"].unsqueeze(1).float(),
+                ),
+                dim=-1,
+            )
+        else:
+            n_feat = torch.cat(
+                (
+                    g.ndata["pos_undirected"],
+                    # g.ndata["pos_directed"],
+                    # self.node_freq_embedding(nfreq.clamp(0, self.max_node_freq)),
+                    # self.degree_embedding(degrees.clamp(0, self.max_degree)),
+                    g.ndata["seed"].unsqueeze(1).float(),
+                    # nfreq.unsqueeze(1).float() / self.max_node_freq,
+                    # degrees.unsqueeze(1).float() / self.max_degree,
+                ),
+                dim=-1,
+            )
 
         # efreq = g.edata["efreq"]
         # e_feat = torch.cat(

@@ -29,11 +29,37 @@ python x2dgl.py --graph-dir data_bin/kdd17 --save-file data_bin/dgl/graphs.bin
 
 ## Pretraining
 
+Run negative sampling (number of negative samples = batch_size - 1, default to 32)
+
 ```
-bash scripts/gin_qibin.sh
+bash scripts/pretrain.sh <gpu>
 ```
 
-## Evaluation
+Run moco with queue size = 32:
+
+```
+bash scripts/pretrain.sh <gpu> --moco
+```
+
+Run moco with larger queue size:
+
+```
+bash scripts/pretrain.sh <gpu> --moco --nce-k 16384
+```
+
+Run with larger model hidden size:
+
+```
+bash scripts/pretrain.sh ... --hidden-size 512
+```
+
+Run with degrees as input features:
+
+```
+bash scripts/pretrain.sh ... --degree-input
+```
+
+## Downstream Tasks
 
 TODO: modify `scripts/test_gin.sh` to load a pretrained model
 
