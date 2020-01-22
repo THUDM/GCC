@@ -123,7 +123,9 @@ def main():
         positional_embedding_size=args.positional_embedding_size,
         max_node_freq=args.max_node_freq,
         max_edge_freq=args.max_edge_freq,
+        max_degree=args.max_degree,
         freq_embedding_size=args.freq_embedding_size,
+        degree_embedding_size=args.degree_embedding_size,
         output_dim=args.hidden_size,
         node_hidden_dim=args.hidden_size,
         edge_hidden_dim=args.hidden_size,
@@ -132,6 +134,7 @@ def main():
         num_layer_set2set=args.set2set_lstm_layer,
         gnn_model=args.model,
         norm=args.norm,
+        degree_input=args.degree_input,
     )
 
     model = model.cuda(args_test.gpu)

@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import torch
 import numpy as np
-import horovod.torch as hvd
+#import horovod.torch as hvd
 
 
 def warmup_linear(x, warmup=0.002):

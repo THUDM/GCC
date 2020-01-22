@@ -18,7 +18,7 @@ from dgl.nodeflow import NodeFlow
 
 from cogdl.datasets import build_dataset
 import data_util
-import horovod.torch as hvd
+#import horovod.torch as hvd
 
 GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi", "rdt-b", "rdt-5k"]
 
@@ -251,11 +251,14 @@ class GraphDataset(torch.utils.data.Dataset):
                     num_hops=step
                     )[0][0][-1].item()
 
+        max_nodes_per_seed = max(self.rw_hops,
+                int((self.graphs[graph_idx].out_degree(node_idx) * math.e / (math.e-1) / self.restart_prob) + 0.5)
+                )
         traces = dgl.contrib.sampling.random_walk_with_restart(
             self.graphs[graph_idx],
             seeds=[node_idx, other_node_idx],
             restart_prob=self.restart_prob,
-            max_nodes_per_seed=self.rw_hops)
+            max_nodes_per_seed=max_nodes_per_seed)
         #  dgl.contrib.sampling.sampler._CAPI_NeighborSampling
 
         graph_q = data_util._rwr_trace_to_dgl_graph(
