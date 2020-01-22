@@ -413,6 +413,13 @@ def train_moco(
         loss = criterion(out)
         loss.backward()
         grad_norm = clip_grad_norm(model.parameters(), opt.clip_norm)
+
+        global_step = epoch * n_batch + idx
+        lr_this_step = opt.learning_rate * warmup_linear(
+            global_step / (opt.epochs * n_batch), 0.1
+        )
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr_this_step
         optimizer.step()
 
         # ===================meters=====================
@@ -468,9 +475,9 @@ def train_moco(
             sw.add_scalar("graph_size/max", max_num_nodes, global_step)
             sw.add_scalar("graph_size/max_edges", max_num_edges, global_step)
             sw.add_scalar("gnorm", gnorm_meter.avg, global_step)
-            #  sw.add_scalar(
-            #      "learning_rate", optimizer.param_groups[0]["lr"], global_step
-            #  )
+            sw.add_scalar(
+                "learning_rate", optimizer.param_groups[0]["lr"], global_step
+            )
             loss_meter.reset()
             prob_meter.reset()
             graph_size.reset()
