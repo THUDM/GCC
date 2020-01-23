@@ -171,13 +171,16 @@ def eigen_decomposision(n, k, laplacian, hidden_size, retry):
     if k <= 0:
         return torch.zeros(n, hidden_size)
     ncv=min(n, max(2*k + 1, 20))
+    # follows https://stackoverflow.com/questions/52386942/scipy-sparse-linalg-eigsh-with-fixed-seed
+    v0 = np.random.rand(n)
     for i in range(retry):
         try:
             s, u = linalg.eigsh(
                     laplacian,
                     k=k,
                     which='LA',
-                    ncv=ncv)
+                    ncv=ncv,
+                    v0=v0)
         except sparse.linalg.eigen.arpack.ArpackError:
             print("arpack error, retry=", i)
             ncv = min(ncv*2, n)

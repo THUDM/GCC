@@ -414,7 +414,7 @@ if __name__ == '__main__':
         print(mem.used/1024**3)
         #  print(batch.graph_q)
         #  print(batch.graph_q.ndata['pos_directed'])
-        #  print(batch.graph_q.ndata['pos_undirected'])
+        print(batch[0].ndata['pos_undirected'])
     exit(0)
     graph_dataset = CogDLGraphDataset(dataset="wikipedia")
     pq, pk = graph_dataset.getplot(0)
