@@ -170,9 +170,11 @@ def _rwr_trace_to_dgl_graph(g, seed, trace, positional_embedding_size, entire_gr
 def eigen_decomposision(n, k, laplacian, hidden_size, retry):
     if k <= 0:
         return torch.zeros(n, hidden_size)
+    print(laplacian.dtype)
+    laplacian = laplacian.astype('float64')
     ncv=min(n, max(2*k + 1, 20))
     # follows https://stackoverflow.com/questions/52386942/scipy-sparse-linalg-eigsh-with-fixed-seed
-    v0 = np.random.rand(n)
+    v0 = np.random.rand(n).astype('float64')
     for i in range(retry):
         try:
             s, u = linalg.eigsh(
@@ -190,7 +192,7 @@ def eigen_decomposision(n, k, laplacian, hidden_size, retry):
         else:
             break
     x = preprocessing.normalize(u, norm='l2')
-    x = torch.from_numpy(x)
+    x = torch.from_numpy(x.astype('float32'))
     x = F.pad(x, (0, hidden_size-k), 'constant', 0)
     return x
 
