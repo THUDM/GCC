@@ -489,16 +489,32 @@ def train_moco(
 
 # def main(args, trial):
 def main(args):
+    dgl.random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            checkpoint = torch.load(args.resume, map_location="cpu")
+            pretrain_args = checkpoint["opt"]
+            pretrain_args.fold_idx = args.fold_idx
+            pretrain_args.gpu = args.gpu
+            pretrain_args.finetune = args.finetune
+            pretrain_args.resume = args.resume
+            pretrain_args.cv = args.cv
+            pretrain_args.dataset = args.dataset
+            pretrain_args.epochs = args.epochs
+            pretrain_args.num_workers = args.num_workers
+            args = pretrain_args
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
     args = option_update(args)
     print(args)
     assert args.gpu is not None and torch.cuda.is_available()
     print("Use GPU: {} for training".format(args.gpu))
     assert args.positional_embedding_size % 2 == 0
     print("setting random seeds")
-    dgl.random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
 
     mem = psutil.virtual_memory()
     print("before construct dataset", mem.used / 1024 ** 3)
@@ -674,26 +690,23 @@ def main(args):
     # optionally resume from a checkpoint
     args.start_epoch = 1
     if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume, map_location="cpu")
-            # checkpoint = torch.load(args.resume)
-            # args.start_epoch = checkpoint["epoch"] + 1
-            model.load_state_dict(checkpoint["model"])
-            # optimizer.load_state_dict(checkpoint["optimizer"])
-            contrast.load_state_dict(checkpoint["contrast"])
-            if args.moco:
-                model_ema.load_state_dict(checkpoint["model_ema"])
+        # print("=> loading checkpoint '{}'".format(args.resume))
+        # checkpoint = torch.load(args.resume, map_location="cpu")
+        # checkpoint = torch.load(args.resume)
+        # args.start_epoch = checkpoint["epoch"] + 1
+        model.load_state_dict(checkpoint["model"])
+        # optimizer.load_state_dict(checkpoint["optimizer"])
+        contrast.load_state_dict(checkpoint["contrast"])
+        if args.moco:
+            model_ema.load_state_dict(checkpoint["model_ema"])
 
-            print(
-                "=> loaded successfully '{}' (epoch {})".format(
-                    args.resume, checkpoint["epoch"]
-                )
+        print(
+            "=> loaded successfully '{}' (epoch {})".format(
+                args.resume, checkpoint["epoch"]
             )
-            del checkpoint
-            torch.cuda.empty_cache()
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+        )
+        del checkpoint
+        torch.cuda.empty_cache()
 
     # tensorboard
     #  logger = tb_logger.Logger(logdir=args.tb_folder, flush_secs=2)
@@ -722,9 +735,6 @@ def main(args):
                 output_layer_optimizer,
                 sw,
                 args,
-            )
-            valid_loss, valid_f1 = test_finetune(
-                epoch, valid_loader, model, output_layer, criterion, sw, args
             )
         else:
             loss = train_moco(
@@ -800,15 +810,15 @@ if __name__ == "__main__":
         def variant_args_generator():
             for fold_idx in range(10):
                 args.fold_idx = fold_idx
-                args.num_workers = 4
+                args.num_workers = 0
                 args.gpu = gpus[fold_idx % len(gpus)]
                 yield copy.deepcopy(args)
 
-        f1 = Parallel(n_jobs=-1)(
+        f1 = Parallel(n_jobs=5)(
             delayed(main)(args) for args in variant_args_generator()
         )
         print(f1)
-        print(np.mean(f1))
+        print(f"Mean = {np.mean(f1)}; Std = {np.std(f1)}")
     else:
         args.gpu = args.gpu[0]
         main(args)

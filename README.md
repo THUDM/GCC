@@ -107,7 +107,25 @@ bash scripts/graph_classification/ours.sh <hidden_size> imdb-binary imdb-multi c
 
 #### GC Supervised
 
-TODO
+Run with `bash scripts/graph_classification/finetune_ours.sh <gpu> <dataset> <epochs> <cross_validation> <load_path> (<addtional_argument_1> ...)`. For example:
+
+Run baseline (GIN) without loading pretrained checkpoint:
+
+```bash
+bash scripts/graph_classification/finetune_ours.sh 5 rdt-b 30 False ""
+```
+
+Run baseline with degrees as input:
+
+```bash
+bash scripts/graph_classification/finetune_ours.sh 5 rdt-b 30 False "" --degree-input
+```
+
+Load pretrained checkpoint (model hyperparameters (e.g., --degree-input) will follow pretrained arguments)
+
+```bash
+bash scripts/graph_classification/finetune_ours.sh 6 rdt-b 30 False saved/Pretrain_moco_True_dgl_gin_layer_5_lr_0.005_decay_1e-05_bsz_32_hid_64_samples_2000_nce_t_0.07_nce_k_16384_rw_hops_256_restart_prob_0.8_aug_1st_ft_False/current.pth
+```
 
 ### Similarity Search
 

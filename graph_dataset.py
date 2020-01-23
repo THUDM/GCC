@@ -352,10 +352,12 @@ class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
             max_nodes_per_seed=self.rw_hops)
 
         graph_q = data_util._rwr_trace_to_dgl_graph(
-                g=self.graphs[graph_idx],
-                seed=node_idx,
-                trace=traces[0],
-                positional_embedding_size=self.positional_embedding_size)
+            g=self.graphs[graph_idx],
+            seed=node_idx,
+            trace=traces[0],
+            positional_embedding_size=self.positional_embedding_size,
+            entire_graph=True,
+        )
         return graph_q, self.dataset.data.y[graph_idx].item()
 
 class CogDLGraphDatasetLabeled(CogDLGraphDataset):
