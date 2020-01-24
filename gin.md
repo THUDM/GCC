@@ -6,7 +6,7 @@ cc: chenqibin422@gmail.com jietang@tsinghua.edu.cn yuxdong@microsoft.com
 
 Dear Authors of GIN:
 
-This is Jiezhong Qiu from Tsinghua University. We are working on a Graph Neural Network paper and would like to use your GIN model as our baseline. We wonder if you would like to share some insights on training the GIN model.
+This is Jiezhong Qiu from Tsinghua University. We are working on a Graph Neural Network paper and would like to use your inspiring GIN model as our baseline. We wonder if you would like to share some insights on training the GIN model.
 
 We download the code from the official implementation at https://github.com/weihua916/powerful-gnns. To reproduce the paper results, we run commands according to README and information provided by the authors in repo issues:
 
@@ -47,7 +47,7 @@ We wonder if you could kindly share:
 
 It would greatly help us to produce the reported results in the GIN paper.
 
-We would like to thank you again for the inspiring work and look forward to hearing from you.
+Thank you in advance for your help, and look forward to hearing from you.
 
 Best,
 Jiezhong
