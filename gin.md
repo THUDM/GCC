@@ -19,11 +19,11 @@ python main.py --dataset REDDITMULTI5K --device 0 --fold-idx 0 > rdt-5k_0.txt
 
 We repeated each command for 3 times with `--fold-idx 0`, `--fold-idx 1`, `--fold-idx 2` and obtained the following results:
 
-| Dataset    | IMDB-B     | IMDB-M     | RDT-B      | RDT-M5K    | COLLAB     |
-| ---------- | ---------- | ---------- | ---------- | ---------- | ---------- |
-| Reported in GIN paper   | 75.1 ± 5.1 | 52.3 ± 2.8 | 92.4 ± 2.5 | 57.5 ± 1.5 | 80.2 ± 1.9 |
-| Reproduced with degree_as_tag | 73.3 ± 2.4 | 49.8 ± 1.3 | 74.9 ± 1.0 | 52.4 ± 2.4 | 78.9 ± 1.0 |
-| Reproduced without degree-as-tag| 73.3 ± 2.4 | 49.8 ± 1.3 | 74.9 ± 1.0 | 52.4 ± 2.4 | 78.9 ± 1.0 |
+| Dataset         | IMDB-B     | IMDB-M     | RDT-B      | RDT-M5K    | COLLAB     |
+|-----------------|------------|------------|------------|------------|------------|
+| Reported        | 75.1 ± 5.1 | 52.3 ± 2.8 | 92.4 ± 2.5 | 57.5 ± 1.5 | 80.2 ± 1.9 |
+| Reproduced      | 73.3 ± 2.4 | 49.8 ± 1.3 | 74.9 ± 1.0 | 52.4 ± 2.4 | 63.9 ± 1.0 |
+| + degree_as_tag | 74.3 ± 4.0 | 48.2 ± 1.9 | 76.3 ± 2.3 | 44.1 ± 1.9 | 78.9 ± 1.0 |
 
 In a recent github issue (https://github.com/weihua916/powerful-gnns/issues/8), one of the authors sugeested tune hyperparmeters and select epoch that achieved the maximum averaged 10-fold validation accuracy.
 
