@@ -6,9 +6,9 @@ cc: chenqibin422@gmail.com jietang@tsinghua.edu.cn yuxdong@microsoft.com
 
 Dear Authors of GIN:
 
-This is Jiezhong Qiu from Tsinghua University. We are working on a Graph Neural Network paper and want to use GIN model as our baseline. We wonder if you would like to share some insights on training GIN model.
+This is Jiezhong Qiu from Tsinghua University. We are working on a Graph Neural Network paper and would like to use your GIN model as our baseline. We wonder if you would like to share some insights on training the GIN model.
 
-We download the code from https://github.com/weihua916/powerful-gnns, the official implementation. To reproduce the paper results, we run commands according to README and information provided by the authors in repo issues:
+We download the code from the official implementation at https://github.com/weihua916/powerful-gnns. To reproduce the paper results, we run commands according to README and information provided by the authors in repo issues:
 
 We run the following two settings, as suggested in the paper.
 
@@ -37,17 +37,17 @@ We repeated each command for 3 times with `--fold-idx 0`, `--fold-idx 1`, `--fol
 | Reproduced      | 73.3 ± 2.4 | 49.8 ± 1.3 | 74.9 ± 1.0 | 52.4 ± 2.4 | 63.9 ± 1.0 |
 | + degree_as_tag | 74.3 ± 4.0 | 48.2 ± 1.9 | 76.3 ± 2.3 | 44.1 ± 1.9 | 78.9 ± 1.0 |
 
-In a recent github repo issue (https://github.com/weihua916/powerful-gnns/issues/8), one of the authors suggested tune hyperparmeters and select epoch that achieved the maximum averaged 10-fold validation accuracy.
+In a recent github repo issue (https://github.com/weihua916/powerful-gnns/issues/8), one of the authors suggested to tune hyperparmeters and select the epoch that achieves the maximum averaged 10-fold validation accuracy.
 
 We wonder if you could kindly share:
 
 1. the preferred hyperparameters
-2. scripts for evaluation, e.g. code for selecting the best epoch on the 10-fold as mentioned in the paper.
-3. any specific software and hardware requirements, e.g., PyTorch, CUDA version that could cause such difference in experimental results.
+2. your scripts for evaluation, e.g. code for selecting the best epoch on the 10-fold as mentioned in the paper.
+3. any specific software and hardware requirements, e.g., PyTorch, CUDA version that could cause the experimental difference.
 
-that might greatly help us to produce the reported results in the GIN paper.
+It would greatly help us to produce the reported results in the GIN paper.
 
-We want to thank you again for the excellent model and look forward to hearing from you.
+We would like to thank you again for the inspiring work and look forward to hearing from you.
 
 Best,
 Jiezhong
