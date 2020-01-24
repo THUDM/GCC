@@ -37,7 +37,7 @@ We repeated each command for 3 times with `--fold-idx 0`, `--fold-idx 1`, `--fol
 | Reproduced      | 73.3 ± 2.4 | 49.8 ± 1.3 | 74.9 ± 1.0 | 52.4 ± 2.4 | 63.9 ± 1.0 |
 | + degree_as_tag | 74.3 ± 4.0 | 48.2 ± 1.9 | 76.3 ± 2.3 | 44.1 ± 1.9 | 78.9 ± 1.0 |
 
-In a recent github repo issue (https://github.com/weihua916/powerful-gnns/issues/8), one of the authors sugeested tune hyperparmeters and select epoch that achieved the maximum averaged 10-fold validation accuracy.
+In a recent github repo issue (https://github.com/weihua916/powerful-gnns/issues/8), one of the authors suggested tune hyperparmeters and select epoch that achieved the maximum averaged 10-fold validation accuracy.
 
 We wonder if you could kindly share:
 
