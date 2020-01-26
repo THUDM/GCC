@@ -139,7 +139,7 @@ def parse_option():
 
 
 def option_update(opt):
-    opt.model_name = "{}_moco_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_hid_{}_samples_{}_nce_t_{}_nce_k_{}_rw_hops_{}_restart_prob_{}_aug_{}_ft_{}_deg_{}_pos_{}".format(
+    opt.model_name = "{}_moco_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_hid_{}_samples_{}_nce_t_{}_nce_k_{}_rw_hops_{}_restart_prob_{}_aug_{}_ft_{}_deg_{}_pos_{}_momentum_{}".format(
         opt.exp,
         opt.moco,
         opt.dataset,
@@ -158,6 +158,7 @@ def option_update(opt):
         opt.finetune,
         opt.degree_embedding_size if opt.degree_input else 0,
         opt.positional_embedding_size,
+        opt.alpha
     )
 
     if opt.load_path is None:
