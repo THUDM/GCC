@@ -507,6 +507,7 @@ def main(args):
             pretrain_args.dataset = args.dataset
             pretrain_args.epochs = args.epochs
             pretrain_args.num_workers = args.num_workers
+            pretrain_args.batch_size = args.batch_size
             args = pretrain_args
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
