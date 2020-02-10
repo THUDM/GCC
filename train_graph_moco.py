@@ -816,9 +816,10 @@ if __name__ == "__main__":
                 args.gpu = gpus[fold_idx % len(gpus)]
                 yield copy.deepcopy(args)
 
-        f1 = Parallel(n_jobs=5)(
-            delayed(main)(args) for args in variant_args_generator()
-        )
+        # f1 = Parallel(n_jobs=5)(
+        #     delayed(main)(args) for args in variant_args_generator()
+        # )
+        f1 = [main(args) for args in variant_args_generator()]
         print(f1)
         print(f"Mean = {np.mean(f1)}; Std = {np.std(f1)}")
     else:
