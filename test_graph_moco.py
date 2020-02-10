@@ -148,7 +148,7 @@ def main():
     args.gpu = args_test.gpu
     args.return_all_outputs = args_test.return_all_outputs
     emb = test_moco(train_loader, model, args)
-    np.save(os.path.join(args.model_path, args_test.dataset), emb.numpy())
+    np.save(os.path.join(args.model_folder, args_test.dataset), emb.numpy())
 
 
 if __name__ == "__main__":
