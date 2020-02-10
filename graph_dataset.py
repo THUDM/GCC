@@ -340,8 +340,12 @@ class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
         super(CogDLGraphClassificationDatasetLabeled, self).__init__(dataset, rw_hops, subgraph_size, restart_prob, positional_embedding_size, step_dist)
         self.num_classes = self.dataset.data.y.max().item() + 1
         self.entire_graph = True
-
+        self.dict = [self.getitem(idx) for idx in range(len(self))]
+    
     def __getitem__(self, idx):
+        return self.dict[idx]
+    
+    def getitem(self, idx):
         graph_idx = idx
         node_idx = self.graphs[idx].out_degrees().argmax().item()
 

@@ -507,6 +507,9 @@ def main(args):
             pretrain_args.dataset = args.dataset
             pretrain_args.epochs = args.epochs
             pretrain_args.num_workers = args.num_workers
+            if args.dataset in GRAPH_CLASSIFICATION_DSETS:
+                # HACK for speeding up finetuning on graph classification tasks
+                pretrain_args.num_workers = 0
             pretrain_args.batch_size = args.batch_size
             args = pretrain_args
         else:
