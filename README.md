@@ -1,139 +1,38 @@
+<p align="center">
+  <img src="fig.png" width="500">
+  <br />
+  <br />
+  <a href="https://travis-ci.org/xptree/graph-self-learn"><img alt="Build Status" src="https://travis-ci.org/xptree/graph-self-learn.svg?branch=master" /></a>
+  <a href="https://github.com/xptree/graph-self-learn/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/github/license/xptree/graph-self-learn" /></a>
+  <a href="https://github.com/ambv/black"><img alt="Code Style" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a>
+</p>
+
+-------------------------------------
+
 # GCC: Graph Contrastive Coding
+
+Original implementation for paper [Graph Contrastive Coding for Structural Graph Representation Pre-Training](TODO).
+
+GCC is a **contrastive learning** framework that implements unsupervised structural graph representation pre-training and achieves state-of-the-art on 10+ datasets on 3 graph mining tasks.
 
 ## Installation
 
-### Install PyTorch 1.3.1
+See [INSTALL.md](INSTALL.md).
 
-### Install PyG with CUDA
+## Quick Start
 
-https://github.com/rusty1s/pytorch_geometric/#installation
+See [GETTING_STARTED.md](GETTING_STARTED.md).
 
-### Install DGL with CUDA
+## Pre-trained Models
 
-https://www.dgl.ai/pages/start.html
-
-### Install CogDL
-
-```bash
-git submodule init
-git submodule update
-cd cogdl
-pip install -e .
-```
-
-## How to process data
-
-```
-python x2dgl.py --graph-dir data_bin/kdd17 --save-file data_bin/dgl/graphs.bin
-```
-
-## Pretraining
-
-Run negative sampling (number negative samples = batch_size - 1, default to 32)
-
-```
-bash scripts/pretrain.sh <gpu>
-```
-
-Run negative sampling with larger batch size (and negative sample size)
-
-```
-bash scripts/pretrain.sh <gpu> --batch-size 256
-```
-
-Run moco with queue size = 32:
-
-```
-bash scripts/pretrain.sh <gpu> --moco
-```
-
-Run moco with larger queue size:
-
-```
-bash scripts/pretrain.sh <gpu> --moco --nce-k 256
-```
-
-Run with larger model hidden size:
-
-```
-bash scripts/pretrain.sh ... --hidden-size 512
-```
-
-Run with degrees as input features:
-
-```
-bash scripts/pretrain.sh ... --degree-input
-```
-
-## Downstream Tasks
-
-Generate embeddings on multiple datasets with
-
-```bash
-bash scripts/generate.sh <gpu> <load_path> <dataset_1> <dataset_2> ...
-```
-
-For example:
-
-```bash
-bash scripts/generate.sh 0 saved/Pretrain_moco_True_dgl_gin_layer_5_lr_0.005_decay_1e-05_bsz_32_samples_2000_nce_t_0.07_nce_k_32_rw_hops_256_restart_prob_0.8_aug_1st_ft_False/current.pth usa_airport kdd imdb-binary
-```
-
-### Node Classification
-
-#### NC Unsupervised
-
-Run baselines on all datasets with `bash scripts/node_classification/baseline.sh <hidden_size> prone graphwave`.
-
-Run ours on multiple datasets:
-
-```bash
-bash scripts/generate.sh <gpu> <load_path> usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
-bash scripts/node_classification/ours.sh <hidden_size> usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
-```
-
-#### NC Supervised
+We provide pre-trained models available for download.
 
 TODO
 
-### Graph Classification
+## Citing GCC
 
-#### GC Unsupervised
+If you use GCC in your research or wish to refer to the baseline results, please use the following BibTeX.
 
-```bash
-bash scripts/generate.sh <gpu> <load_path> imdb-binary imdb-multi collab rdt-b rdt-5k
-bash scripts/graph_classification/ours.sh <hidden_size> imdb-binary imdb-multi collab rdt-b rdt-5k
 ```
 
-#### GC Supervised
-
-Run with `bash scripts/graph_classification/finetune_ours.sh <gpu> <dataset> <epochs> <cross_validation> <load_path> (<addtional_argument_1> ...)`. For example:
-
-Run baseline (GIN) without loading pretrained checkpoint:
-
-```bash
-bash scripts/graph_classification/finetune_ours.sh 5 rdt-b 30 False ""
-```
-
-Run baseline with degrees as input:
-
-```bash
-bash scripts/graph_classification/finetune_ours.sh 5 rdt-b 30 False "" --degree-input
-```
-
-Load pretrained checkpoint (model hyperparameters (e.g., --degree-input) will follow pretrained arguments)
-
-```bash
-bash scripts/graph_classification/finetune_ours.sh 6 rdt-b 30 False saved/Pretrain_moco_True_dgl_gin_layer_5_lr_0.005_decay_1e-05_bsz_32_hid_64_samples_2000_nce_t_0.07_nce_k_16384_rw_hops_256_restart_prob_0.8_aug_1st_ft_False/current.pth
-```
-
-### Similarity Search
-
-Run baselines on all datasets with `bash scripts/similarity_search/baseline.sh <hidden_size> graphwave`.
-
-TODO: Search proper checkpoint
-
-```bash
-bash scripts/generate.sh <gpu> <load_path> kdd icdm sigir cikm sigmod icde
-bash scripts/similarity_search/ours.sh <hidden_size> kdd_icdm sigir_cikm sigmod_icde
 ```
