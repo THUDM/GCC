@@ -158,7 +158,7 @@ def option_update(opt):
         opt.finetune,
         opt.degree_embedding_size if opt.degree_input else 0,
         opt.positional_embedding_size,
-        opt.alpha
+        opt.alpha,
     )
 
     if opt.load_path is None:
@@ -477,9 +477,7 @@ def train_moco(
             sw.add_scalar("graph_size/max", max_num_nodes, global_step)
             sw.add_scalar("graph_size/max_edges", max_num_edges, global_step)
             sw.add_scalar("gnorm", gnorm_meter.avg, global_step)
-            sw.add_scalar(
-                "learning_rate", optimizer.param_groups[0]["lr"], global_step
-            )
+            sw.add_scalar("learning_rate", optimizer.param_groups[0]["lr"], global_step)
             loss_meter.reset()
             prob_meter.reset()
             graph_size.reset()

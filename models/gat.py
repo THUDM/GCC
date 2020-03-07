@@ -11,14 +11,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dgl.model_zoo.chem.gnn import GATLayer
 
+
 class UnsupervisedGAT(nn.Module):
-    def __init__(self,
-            node_input_dim,
-            node_hidden_dim,
-            edge_input_dim,
-            num_layers,
-            num_heads,
-            ):
+    def __init__(
+        self, node_input_dim, node_hidden_dim, edge_input_dim, num_layers, num_heads
+    ):
         super(UnsupervisedGAT, self).__init__()
         assert node_hidden_dim % num_heads == 0
         self.layers = nn.ModuleList(
@@ -31,8 +28,8 @@ class UnsupervisedGAT(nn.Module):
                     attn_drop=0.0,
                     alpha=0.2,
                     residual=False,
-                    agg_mode='flatten',
-                    activation=F.leaky_relu if i + 1 < num_layers else None
+                    agg_mode="flatten",
+                    activation=F.leaky_relu if i + 1 < num_layers else None,
                 )
                 for i in range(num_layers)
             ]

@@ -108,7 +108,7 @@ def main():
                 restart_prob=args.restart_prob,
                 positional_embedding_size=args.positional_embedding_size,
             )
-    args.batch_size=len(train_dataset)
+    args.batch_size = len(train_dataset)
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,

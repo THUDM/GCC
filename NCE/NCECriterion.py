@@ -8,6 +8,7 @@ class NCECriterion(nn.Module):
     """
     Eq. (12): L_{NCE}
     """
+
     def __init__(self, n_data):
         super(NCECriterion, self).__init__()
         self.n_data = n_data
@@ -27,13 +28,14 @@ class NCECriterion(nn.Module):
         P_neg = x.narrow(1, 1, m)
         log_D0 = torch.div(P_neg.clone().fill_(m * Pn), P_neg.add(m * Pn + eps)).log_()
 
-        loss = - (log_D1.sum(0) + log_D0.view(-1, 1).sum(0)) / bsz
+        loss = -(log_D1.sum(0) + log_D0.view(-1, 1).sum(0)) / bsz
 
         return loss
 
 
 class NCESoftmaxLoss(nn.Module):
     """Softmax cross-entropy loss (a.k.a., info-NCE loss in CPC paper)"""
+
     def __init__(self):
         super(NCESoftmaxLoss, self).__init__()
         self.criterion = nn.CrossEntropyLoss()
@@ -45,8 +47,10 @@ class NCESoftmaxLoss(nn.Module):
         loss = self.criterion(x, label)
         return loss
 
+
 class NCESoftmaxLossNS(nn.Module):
     """Softmax cross-entropy loss (a.k.a., info-NCE loss in CPC paper)"""
+
     def __init__(self):
         super(NCESoftmaxLossNS, self).__init__()
         self.criterion = nn.CrossEntropyLoss()

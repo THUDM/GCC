@@ -14,13 +14,17 @@ import argparse
 import pathlib
 import logging
 import torch
+
 #  from cogdl.models.emb.prone import ProNE
 import numpy as np
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                    datefmt='%m/%d/%Y %H:%M:%S',
-                    level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    datefmt="%m/%d/%Y %H:%M:%S",
+    level=logging.INFO,
+)
 logger = logging.getLogger(__name__)
+
 
 def yuxiao_kdd17_graph_to_dgl(file):
     logger.info("processing %s", file)
@@ -32,7 +36,7 @@ def yuxiao_kdd17_graph_to_dgl(file):
             f.readline()
         m = int(f.readline().split()[1])
         m_true = 0
-        row, col = [0] * (2*m), [0] * (2*m)
+        row, col = [0] * (2 * m), [0] * (2 * m)
         for i in range(m):
             u, v, _ = list(map(int, f.readline().split()))
             if u == v:
@@ -57,28 +61,47 @@ def yuxiao_kdd17_graph_to_dgl(file):
     g.from_scipy_sparse_matrix(A)
     g.remove_nodes((g.in_degrees() == 0).nonzero().squeeze())
     g.readonly()
-    logger.info("%d nodes, %d edges, %d self-loop(s) removed, %d zero-degree node(s) removed", g.number_of_nodes(), g.number_of_edges(), 2*m-m_true, n-g.number_of_nodes())
+    logger.info(
+        "%d nodes, %d edges, %d self-loop(s) removed, %d zero-degree node(s) removed",
+        g.number_of_nodes(),
+        g.number_of_edges(),
+        2 * m - m_true,
+        n - g.number_of_nodes(),
+    )
     logger.info("return graph %s", re.sub("\s+", " ", str(g)))
     return g
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("argument for x2dgl")
-    parser.add_argument("--graph-dir", type=str, required=True, help="dir to load graphs")
-    parser.add_argument("--save-file", type=str, required=True, help="file to save graphs")
-    parser.add_argument("--embed-dim", type=int, required=True, help="embeding dimension")
+    parser.add_argument(
+        "--graph-dir", type=str, required=True, help="dir to load graphs"
+    )
+    parser.add_argument(
+        "--save-file", type=str, required=True, help="file to save graphs"
+    )
+    parser.add_argument(
+        "--embed-dim", type=int, required=True, help="embeding dimension"
+    )
 
     args = parser.parse_args()
     graph_dir = pathlib.Path(args.graph_dir)
-    todo = set(["ca-DBLP-NetRep.txt.lpm.lscc",
+    todo = set(
+        [
+            "ca-DBLP-NetRep.txt.lpm.lscc",
             "ca-DBLP-SNAP.txtu.lpm.lscc",
             "ca-IMDB-NetRep.txt.lpm.lscc",
             "soc-Academia-NetRep.txt.lpm.lscc",
             "soc-LiveJournal1-d-SNAP.txtu.lpm.lscc",
-            "soc-Facebook1-NetRep.txt.lpm.lscc"
-            ])
+            "soc-Facebook1-NetRep.txt.lpm.lscc",
+        ]
+    )
 
-    graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
-            and graph_file.name in todo]
+    graphs = [
+        yuxiao_kdd17_graph_to_dgl(graph_file)
+        for graph_file in graph_dir.iterdir()
+        if graph_file.is_file() and graph_file.name in todo
+    ]
     #  graphs = [yuxiao_kdd17_graph_to_dgl(graph_file) for graph_file in graph_dir.iterdir() if graph_file.is_file() \
     #          and graph_file.name.find("soc-Friendster-SNAP.txt.lpm.lscc") == -1 \
     #          and graph_file.name.find("soc-Facebook-NetRep.txt.lpm.lscc") == -1 \
@@ -105,7 +128,5 @@ if __name__ == "__main__":
         print(i, g, graph_sizes[i])
     logger.info("save graphs to %s", args.save_file)
     save_graphs(
-            filename=args.save_file,
-            g_list=graphs,
-            labels={"graph_sizes": graph_sizes}
-            )
+        filename=args.save_file, g_list=graphs, labels={"graph_sizes": graph_sizes}
+    )

@@ -2,15 +2,16 @@ from __future__ import print_function
 
 import torch
 import numpy as np
-#import horovod.torch as hvd
+
+# import horovod.torch as hvd
 
 
 def warmup_linear(x, warmup=0.002):
     """ Specifies a triangular learning rate schedule where peak is reached at `warmup`*`t_total`-th (as provided to BertAdam) training step.
         After `t_total`-th training step, learning rate is zero. """
     if x < warmup:
-        return x/warmup
-    return max((x-1.)/(warmup-1.), 0)
+        return x / warmup
+    return max((x - 1.0) / (warmup - 1.0), 0)
 
 
 def adjust_learning_rate(epoch, opt, optimizer):
@@ -19,14 +20,15 @@ def adjust_learning_rate(epoch, opt, optimizer):
     if steps > 0:
         new_lr = opt.learning_rate * (opt.lr_decay_rate ** steps)
         for param_group in optimizer.param_groups:
-            param_group['lr'] = new_lr
+            param_group["lr"] = new_lr
+
 
 # Horovod: average metrics from distributed training.
 class HorovodAverageMeter(object):
     def __init__(self, name):
         self.name = name
-        self.sum = torch.tensor(0.)
-        self.n = torch.tensor(0.)
+        self.sum = torch.tensor(0.0)
+        self.n = torch.tensor(0.0)
 
     def update(self, val):
         self.sum += hvd.allreduce(val.detach().cpu(), name=self.name)
@@ -35,13 +37,15 @@ class HorovodAverageMeter(object):
     @property
     def avg(self):
         return self.sum / self.n
+
     def reset(self):
-        self.sum = torch.tensor(0.)
-        self.n = torch.tensor(0.)
+        self.sum = torch.tensor(0.0)
+        self.n = torch.tensor(0.0)
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.val = 0
         self.avg = 0
@@ -79,5 +83,5 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     meter = AverageMeter()
