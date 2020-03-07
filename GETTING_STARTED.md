@@ -25,6 +25,14 @@ python x2dgl.py --graph-dir data_bin/kdd17 --save-file data_bin/dgl/graphs.bin
 
 ### Pretraining
 
+Download Pre-training datasets
+
+```bash
+python scripts/download.py --url https://drive.google.com/open?id=1JCHm39rf7HAJSp-1755wa32ToHCn2Twz --fname small.bin
+# For users in Mainland China, use
+# python scripts/download.py --url TODO_THUDRIVE --fname small.bin
+```
+
 Run negative sampling (number negative samples = batch_size - 1, default to 32)
 
 ```

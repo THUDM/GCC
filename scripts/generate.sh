@@ -4,5 +4,5 @@ ARGS=${@:3}
 
 for dataset in $ARGS
 do
-    python test_graph_moco.py --gpu $gpu --dataset $dataset --load-path $load_path
+    python generate.py --gpu $gpu --dataset $dataset --load-path $load_path
 done
