@@ -13,21 +13,21 @@ import numpy as np
 import tensorboard_logger as tb_logger
 import torch
 
-from data_util import batcher
-from graph_dataset import (
-    CogDLGraphDataset,
+import dgl
+from gcc.contrastive.criterions import NCESoftmaxLoss, NCESoftmaxLossNS
+from gcc.contrastive.memory_moco import MemoryMoCo
+from gcc.datasets import (
+    GRAPH_CLASSIFICATION_DSETS,
     CogDLGraphClassificationDataset,
-    GraphDataset,
+    CogDLGraphClassificationDatasetLabeled,
+    CogDLGraphDataset,
+    CogDLGraphDatasetLabeled,
+    LoadBalanceGraphDataset,
+    worker_init_fn,
 )
-from models.gat import UnsupervisedGAT
-from models.gcn import UnsupervisedGCN
-from models.graph_encoder import GraphEncoder
-from models.mpnn import UnsupervisedMPNN
-from NCE.NCEAverage import MemoryMoCo
-from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss
-from train_graph_moco import option_update, parse_option
-from graph_dataset import GRAPH_CLASSIFICATION_DSETS
-from util import AverageMeter, adjust_learning_rate
+from gcc.datasets.data_util import batcher
+from gcc.models import GraphEncoder
+from gcc.utils.misc import AverageMeter, adjust_learning_rate, warmup_linear
 
 
 def test_moco(train_loader, model, opt):

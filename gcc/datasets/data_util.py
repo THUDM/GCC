@@ -5,19 +5,19 @@
 # Create Time: 2019/12/30 14:20
 # TODO:
 
+import io
+import itertools
+
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-import torch
-
-# import tensorflow as tf
-import io
 import scipy.sparse as sparse
-from scipy.sparse import linalg
 import sklearn.preprocessing as preprocessing
+import torch
 import torch.nn.functional as F
+from scipy.sparse import linalg
+
 import dgl
-import matplotlib.pyplot as plt
-import itertools
 
 
 def batcher():

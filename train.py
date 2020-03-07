@@ -20,28 +20,21 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.tensorboard import SummaryWriter
 
-import data_util
 import dgl
-from graph_dataset import (
+from gcc.datasets import (
     GRAPH_CLASSIFICATION_DSETS,
     CogDLGraphClassificationDataset,
     CogDLGraphClassificationDatasetLabeled,
     CogDLGraphDataset,
     CogDLGraphDatasetLabeled,
-    GraphDataset,
     LoadBalanceGraphDataset,
     worker_init_fn,
 )
-from models.graph_encoder import GraphEncoder
-from NCE.NCEAverage import MemoryMoCo
-from NCE.NCECriterion import NCECriterion, NCESoftmaxLoss, NCESoftmaxLossNS
-from util import AverageMeter, adjust_learning_rate, warmup_linear
-
-# https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
-import resource
-
-rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
+from gcc.models import GraphEncoder
+from gcc.datasets.data_util import batcher, labeled_batcher
+from gcc.contrastive.criterions import NCESoftmaxLoss, NCESoftmaxLossNS
+from gcc.contrastive.memory_moco import MemoryMoCo
+from gcc.utils.misc import AverageMeter, adjust_learning_rate, warmup_linear
 
 
 def parse_option():
@@ -585,9 +578,9 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-        collate_fn=data_util.labeled_batcher()
+        collate_fn=labeled_batcher()
         if args.finetune
-        else data_util.batcher(),
+        else batcher(),
         shuffle=True if args.finetune else False,
         num_workers=args.num_workers,
         worker_init_fn=None
@@ -598,7 +591,7 @@ def main(args):
         valid_loader = torch.utils.data.DataLoader(
             dataset=valid_dataset,
             batch_size=args.batch_size,
-            collate_fn=data_util.labeled_batcher(),
+            collate_fn=labeled_batcher(),
             num_workers=args.num_workers,
         )
     mem = psutil.virtual_memory()

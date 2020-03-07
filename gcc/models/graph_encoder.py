@@ -9,9 +9,9 @@ import dgl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import models.mpnn as mpnn
-import models.gat as gat
-import models.gin as gin
+from gcc.models.mpnn import UnsupervisedMPNN
+from gcc.models.gat import UnsupervisedGAT
+from gcc.models.gin import UnsupervisedGIN
 from dgl.nn.pytorch import Set2Set
 
 
@@ -71,7 +71,7 @@ class GraphEncoder(nn.Module):
         # )
         edge_input_dim = freq_embedding_size + 1
         if gnn_model == "mpnn":
-            self.gnn = mpnn.UnsupervisedMPNN(
+            self.gnn = UnsupervisedMPNN(
                 output_dim=output_dim,
                 node_input_dim=node_input_dim,
                 node_hidden_dim=node_hidden_dim,
@@ -81,7 +81,7 @@ class GraphEncoder(nn.Module):
                 lstm_as_gate=lstm_as_gate,
             )
         elif gnn_model == "gat":
-            self.gnn = gat.UnsupervisedGAT(
+            self.gnn = UnsupervisedGAT(
                 node_input_dim=node_input_dim,
                 node_hidden_dim=node_hidden_dim,
                 edge_input_dim=edge_input_dim,
@@ -89,7 +89,7 @@ class GraphEncoder(nn.Module):
                 num_heads=num_heads,
             )
         elif gnn_model == "gin":
-            self.gnn = gin.UnsupervisedGIN(
+            self.gnn = UnsupervisedGIN(
                 num_layers=num_layers,
                 num_mlp_layers=2,
                 input_dim=node_input_dim,

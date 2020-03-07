@@ -116,5 +116,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-tensorboard*/
+tensorboard/
 data_bin/
+.vscode/
+saved/

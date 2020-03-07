@@ -6,20 +6,19 @@
 # TODO:
 
 import math
-import numpy as np
 import operator
-import dgl
-import networkx as nx
+
 import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
 import torch
-from dgl.data import AmazonCoBuy, Coauthor
+
+import dgl
 import dgl.data
-from dgl.nodeflow import NodeFlow
-
 from cogdl.datasets import build_dataset
-import data_util
-
-GRAPH_CLASSIFICATION_DSETS = ["collab", "imdb-binary", "imdb-multi", "rdt-b", "rdt-5k"]
+from dgl.data import AmazonCoBuy, Coauthor
+from dgl.nodeflow import NodeFlow
+from gcc.datasets import data_util
 
 
 def worker_init_fn(worker_id):
