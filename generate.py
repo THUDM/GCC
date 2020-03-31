@@ -18,10 +18,10 @@ from gcc.contrastive.criterions import NCESoftmaxLoss, NCESoftmaxLossNS
 from gcc.contrastive.memory_moco import MemoryMoCo
 from gcc.datasets import (
     GRAPH_CLASSIFICATION_DSETS,
-    CogDLGraphClassificationDataset,
-    CogDLGraphClassificationDatasetLabeled,
-    CogDLGraphDataset,
-    CogDLGraphDatasetLabeled,
+    GraphClassificationDataset,
+    GraphClassificationDatasetLabeled,
+    NodeClassificationDataset,
+    NodeClassificationDatasetLabeled,
     LoadBalanceGraphDataset,
     worker_init_fn,
 )
@@ -93,7 +93,7 @@ def main():
         )
     else:
         if args_test.dataset in GRAPH_CLASSIFICATION_DSETS:
-            train_dataset = CogDLGraphClassificationDataset(
+            train_dataset = GraphClassificationDataset(
                 dataset=args_test.dataset,
                 rw_hops=args.rw_hops,
                 subgraph_size=args.subgraph_size,
@@ -101,7 +101,7 @@ def main():
                 positional_embedding_size=args.positional_embedding_size,
             )
         else:
-            train_dataset = CogDLGraphDataset(
+            train_dataset = NodeClassificationDataset(
                 dataset=args_test.dataset,
                 rw_hops=args.rw_hops,
                 subgraph_size=args.subgraph_size,

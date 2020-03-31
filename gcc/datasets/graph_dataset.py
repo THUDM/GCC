@@ -15,10 +15,11 @@ import torch
 
 import dgl
 import dgl.data
-from cogdl.datasets import build_dataset
 from dgl.data import AmazonCoBuy, Coauthor
 from dgl.nodeflow import NodeFlow
 from gcc.datasets import data_util
+import torch_geometric.transforms as T
+from torch_geometric.datasets import Planetoid, Reddit, TUDataset
 
 
 def worker_init_fn(worker_id):
@@ -282,7 +283,7 @@ class GraphDataset(torch.utils.data.Dataset):
         return graph_q, graph_k
 
 
-class CogDLGraphDataset(GraphDataset):
+class NodeClassificationDataset(GraphDataset):
     def __init__(
         self,
         dataset,
@@ -299,13 +300,7 @@ class CogDLGraphDataset(GraphDataset):
         self.step_dist = step_dist
         assert positional_embedding_size > 1
 
-        class tmp:
-            # HACK
-            pass
-
-        args = tmp()
-        args.dataset = dataset
-        self.data = build_dataset(args)[0]
+        self.data = data_util.create_node_classification_dataset(dataset)[0]
         self.graphs = [self._create_dgl_graph(self.data)]
         self.length = sum([g.number_of_nodes() for g in self.graphs])
         self.total = self.length
@@ -322,7 +317,7 @@ class CogDLGraphDataset(GraphDataset):
         return graph
 
 
-class CogDLGraphClassificationDataset(CogDLGraphDataset):
+class GraphClassificationDataset(NodeClassificationDataset):
     def __init__(
         self,
         dataset,
@@ -340,13 +335,7 @@ class CogDLGraphClassificationDataset(CogDLGraphDataset):
         self.entire_graph = True
         assert positional_embedding_size > 1
 
-        class tmp:
-            # HACK
-            pass
-
-        args = tmp()
-        args.dataset = dataset
-        self.dataset = build_dataset(args)
+        self.dataset = data_util.create_graph_classification_dataset(dataset)
         self.graphs = [self._create_dgl_graph(data) for data in self.dataset]
 
         self.length = len(self.graphs)
@@ -358,7 +347,7 @@ class CogDLGraphClassificationDataset(CogDLGraphDataset):
         return graph_idx, node_idx
 
 
-class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
+class GraphClassificationDatasetLabeled(GraphClassificationDataset):
     def __init__(
         self,
         dataset,
@@ -368,7 +357,7 @@ class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
         positional_embedding_size=32,
         step_dist=[1.0, 0.0, 0.0],
     ):
-        super(CogDLGraphClassificationDatasetLabeled, self).__init__(
+        super(GraphClassificationDatasetLabeled, self).__init__(
             dataset,
             rw_hops,
             subgraph_size,
@@ -404,7 +393,7 @@ class CogDLGraphClassificationDatasetLabeled(CogDLGraphClassificationDataset):
         return graph_q, self.dataset.data.y[graph_idx].item()
 
 
-class CogDLGraphDatasetLabeled(CogDLGraphDataset):
+class NodeClassificationDatasetLabeled(NodeClassificationDataset):
     def __init__(
         self,
         dataset,
@@ -415,7 +404,7 @@ class CogDLGraphDatasetLabeled(CogDLGraphDataset):
         step_dist=[1.0, 0.0, 0.0],
         cat_prone=False,
     ):
-        super(CogDLGraphDatasetLabeled, self).__init__(
+        super(NodeClassificationDatasetLabeled, self).__init__(
             dataset,
             rw_hops,
             subgraph_size,
@@ -482,7 +471,7 @@ if __name__ == "__main__":
         #  print(batch.graph_q.ndata['pos_directed'])
         print(batch[0].ndata["pos_undirected"])
     exit(0)
-    graph_dataset = CogDLGraphDataset(dataset="wikipedia")
+    graph_dataset = NodeClassificationDataset(dataset="wikipedia")
     graph_loader = torch.utils.data.DataLoader(
         dataset=graph_dataset,
         batch_size=20,

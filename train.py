@@ -23,10 +23,10 @@ from torch.utils.tensorboard import SummaryWriter
 import dgl
 from gcc.datasets import (
     GRAPH_CLASSIFICATION_DSETS,
-    CogDLGraphClassificationDataset,
-    CogDLGraphClassificationDatasetLabeled,
-    CogDLGraphDataset,
-    CogDLGraphDatasetLabeled,
+    GraphClassificationDataset,
+    GraphClassificationDatasetLabeled,
+    NodeClassificationDataset,
+    NodeClassificationDatasetLabeled,
     LoadBalanceGraphDataset,
     worker_init_fn,
 )
@@ -516,7 +516,7 @@ def main(args):
     print("before construct dataset", mem.used / 1024 ** 3)
     if args.finetune:
         if args.dataset in GRAPH_CLASSIFICATION_DSETS:
-            dataset = CogDLGraphClassificationDatasetLabeled(
+            dataset = GraphClassificationDatasetLabeled(
                 dataset=args.dataset,
                 rw_hops=args.rw_hops,
                 subgraph_size=args.subgraph_size,
@@ -525,7 +525,7 @@ def main(args):
             )
             labels = dataset.dataset.data.y.tolist()
         else:
-            dataset = CogDLGraphDatasetLabeled(
+            dataset = NodeClassificationDatasetLabeled(
                 dataset=args.dataset,
                 rw_hops=args.rw_hops,
                 subgraph_size=args.subgraph_size,
@@ -557,7 +557,7 @@ def main(args):
         )
     else:
         if args.dataset in GRAPH_CLASSIFICATION_DSETS:
-            train_dataset = CogDLGraphClassificationDataset(
+            train_dataset = GraphClassificationDataset(
                 dataset=args.dataset,
                 rw_hops=args.rw_hops,
                 subgraph_size=args.subgraph_size,
@@ -565,7 +565,7 @@ def main(args):
                 positional_embedding_size=args.positional_embedding_size,
             )
         else:
-            train_dataset = CogDLGraphDataset(
+            train_dataset = NodeClassificationDataset(
                 dataset=args.dataset,
                 rw_hops=args.rw_hops,
                 subgraph_size=args.subgraph_size,
