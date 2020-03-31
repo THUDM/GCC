@@ -107,13 +107,13 @@ class Edgelist(Dataset):
 
 def create_node_classification_dataset(dataset_name):
     if "airport" in dataset_name:
-        return Edgelist("cogdl/data/struc2vec/", {
+        return Edgelist("data/struc2vec/", {
             "usa_airport": "usa-airports",
             "brazil_airport": "brazil-airports",
             "europe_airport": "europe-airports",
         })
     elif "h-index" in dataset_name:
-        return Edgelist("cogdl/data/hindex/", {
+        return Edgelist("data/hindex/", {
             "h-index-rand-1": "aminer_hindex_rand1_5000",
             "h-index-top-1": "aminer_hindex_top1_5000",
             "h-index-rand20intop200": "aminer_hindex_rand20intop200_5000",
