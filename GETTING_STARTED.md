@@ -87,13 +87,13 @@ bash scripts/generate.sh 0 saved/Pretrain_moco_True_dgl_gin_layer_5_lr_0.005_dec
 
 ##### NC Unsupervised
 
-Run baselines on all datasets with `bash scripts/node_classification/baseline.sh <hidden_size> prone graphwave`.
+Run baselines on multiple datasets with `bash scripts/node_classification/baseline.sh <hidden_size> <baseline:prone/graphwave> usa_airport h-index`.
 
-Run ours on multiple datasets:
+Evaluate Ours on multiple datasets:
 
 ```bash
-bash scripts/generate.sh <gpu> <load_path> usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
-bash scripts/node_classification/ours.sh <hidden_size> usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
+bash scripts/generate.sh <gpu> <load_path> usa_airport h-index
+bash scripts/node_classification/ours.sh <load_path> <hidden_size> usa_airport h-index
 ```
 
 ##### NC Supervised
@@ -106,7 +106,7 @@ TODO
 
 ```bash
 bash scripts/generate.sh <gpu> <load_path> imdb-binary imdb-multi collab rdt-b rdt-5k
-bash scripts/graph_classification/ours.sh <hidden_size> imdb-binary imdb-multi collab rdt-b rdt-5k
+bash scripts/graph_classification/ours.sh <load_path> <hidden_size> imdb-binary imdb-multi collab rdt-b rdt-5k
 ```
 
 ##### GC Supervised

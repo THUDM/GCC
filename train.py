@@ -71,7 +71,7 @@ def parse_option():
     parser.add_argument("--exp", type=str, default="")
 
     # dataset definition
-    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index-rand20intop200"] + GRAPH_CLASSIFICATION_DSETS)
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index"] + GRAPH_CLASSIFICATION_DSETS)
 
     # model definition
     parser.add_argument("--model", type=str, default="gin", choices=["gat", "mpnn", "gin"])
@@ -578,9 +578,7 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
-        collate_fn=labeled_batcher()
-        if args.finetune
-        else batcher(),
+        collate_fn=labeled_batcher() if args.finetune else batcher(),
         shuffle=True if args.finetune else False,
         num_workers=args.num_workers,
         worker_init_fn=None

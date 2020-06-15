@@ -9,7 +9,7 @@ import io
 import itertools
 import os
 import os.path as osp
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,10 +19,9 @@ import sklearn.preprocessing as preprocessing
 import torch
 import torch.nn.functional as F
 from scipy.sparse import linalg
-from torch_geometric.datasets import TUDataset
-from torch_geometric.data import Dataset
 
 import dgl
+from dgl.data.tu import TUDataset
 
 
 def batcher():
@@ -43,6 +42,9 @@ def labeled_batcher():
     return batcher_dev
 
 
+Data = namedtuple("Data", ["x", "edge_index", "y"])
+
+
 def create_graph_classification_dataset(dataset_name):
     name = {
         "imdb-binary": "IMDB-BINARY",
@@ -51,11 +53,13 @@ def create_graph_classification_dataset(dataset_name):
         "rdt-5k": "REDDIT-MULTI-5K",
         "collab": "COLLAB",
     }[dataset_name]
-    path = osp.join(osp.dirname(osp.realpath(__file__)), "../..", "data", name)
-    return TUDataset(name, path)
+    dataset = TUDataset(name)
+    dataset.num_labels = dataset.num_labels[0]
+    dataset.graph_labels = dataset.graph_labels.squeeze()
+    return dataset
 
 
-class Edgelist(Dataset):
+class Edgelist(object):
     def __init__(self, root, name):
         self.name = name
         edge_list_path = os.path.join(root, name + ".edgelist")
@@ -83,7 +87,6 @@ class Edgelist(Dataset):
                 edge_list.append([node2id[y], node2id[x]])
 
         num_nodes = len(node2id)
-        print(num_nodes, len(edge_list))
         with open(node_label_path) as f:
             nodes = []
             labels = []
@@ -105,19 +108,26 @@ class Edgelist(Dataset):
         y[nodes, labels] = 1
         return torch.LongTensor(edge_list).t(), y, node2id
 
+
 def create_node_classification_dataset(dataset_name):
     if "airport" in dataset_name:
-        return Edgelist("data/struc2vec/", {
-            "usa_airport": "usa-airports",
-            "brazil_airport": "brazil-airports",
-            "europe_airport": "europe-airports",
-        })
+        return Edgelist(
+            "data/struc2vec/",
+            {
+                "usa_airport": "usa-airports",
+                "brazil_airport": "brazil-airports",
+                "europe_airport": "europe-airports",
+            }[dataset_name],
+        )
     elif "h-index" in dataset_name:
-        return Edgelist("data/hindex/", {
-            "h-index-rand-1": "aminer_hindex_rand1_5000",
-            "h-index-top-1": "aminer_hindex_top1_5000",
-            "h-index-rand20intop200": "aminer_hindex_rand20intop200_5000",
-        })
+        return Edgelist(
+            "data/hindex/",
+            {
+                "h-index-rand-1": "aminer_hindex_rand1_5000",
+                "h-index-top-1": "aminer_hindex_top1_5000",
+                "h-index": "aminer_hindex_rand20intop200_5000",
+            }[dataset_name],
+        )
     else:
         raise NotImplementedError
 

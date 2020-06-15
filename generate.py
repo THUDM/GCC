@@ -63,7 +63,7 @@ def main():
     parser = argparse.ArgumentParser("argument for training")
     # fmt: off
     parser.add_argument("--load-path", type=str, help="path to load model")
-    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index-rand20intop200"] + GRAPH_CLASSIFICATION_DSETS)
+    parser.add_argument("--dataset", type=str, default="dgl", choices=["dgl", "wikipedia", "blogcatalog", "usa_airport", "brazil_airport", "europe_airport", "cora", "citeseer", "pubmed", "kdd", "icdm", "sigir", "cikm", "sigmod", "icde", "h-index-rand-1", "h-index-top-1", "h-index"] + GRAPH_CLASSIFICATION_DSETS)
     parser.add_argument("--return-all-outputs", action="store_true", help="concat all layer's pooled output as final embedding")
     parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
     # fmt: on

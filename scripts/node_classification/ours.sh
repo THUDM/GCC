@@ -1,8 +1,10 @@
 #!/bin/bash
-hidden_size=$1
-ARGS=${@:2}
+gpu=$1
+load_path=$2
+hidden_size=$3
+ARGS=${@:4}
 
 for dataset in $ARGS
 do
-    python cogdl/scripts/train.py --task unsupervised_node_classification --dataset $dataset --seed 0 --hidden-size $hidden_size --model from_numpy --emb-path "saved/$dataset.npy"
+    python gcc/tasks/node_classification.py --dataset $dataset --hidden-size $hidden_size --model from_numpy --emb-path "$load_path/$dataset.npy"
 done

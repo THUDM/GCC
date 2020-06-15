@@ -1,8 +1,9 @@
 #!/bin/bash
 hidden_size=$1
-ARGS=${@:2}
+model=$2
+ARGS=${@:3}
 
-for dataset in usa_airport h-index-top-1 h-index-rand-1 h-index-rand20intop200
+for dataset in $ARGS
 do
-    python cogdl/scripts/train.py --task unsupervised_node_classification --dataset $dataset --seed 0 --hidden-size $hidden_size --model $ARGS
+    python gcc/tasks/node_classification.py --dataset $dataset --hidden-size $hidden_size --model $model
 done

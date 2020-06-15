@@ -15,7 +15,6 @@ import pathlib
 import logging
 import torch
 
-#  from cogdl.models.emb.prone import ProNE
 import numpy as np
 
 logging.basicConfig(

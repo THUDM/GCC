@@ -18,8 +18,6 @@ import dgl.data
 from dgl.data import AmazonCoBuy, Coauthor
 from dgl.nodeflow import NodeFlow
 from gcc.datasets import data_util
-import torch_geometric.transforms as T
-from torch_geometric.datasets import Planetoid, Reddit, TUDataset
 
 
 def worker_init_fn(worker_id):
@@ -71,8 +69,6 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         graph_sizes = sorted(
             enumerate(graph_sizes), key=operator.itemgetter(1), reverse=True
         )
-        # Drop top 2 largest graphs
-        # graph_sizes = graph_sizes[2:]
         for idx, size in graph_sizes:
             argmin = workloads.index(min(workloads))
             workloads[argmin] += size
@@ -87,7 +83,6 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         return self.num_samples * num_workers
 
     def __iter__(self):
-        #  samples = np.random.randint(low=0, high=self.length, size=self.num_samples)
         degrees = torch.cat([g.in_degrees().double() ** 0.75 for g in self.graphs])
         prob = degrees / torch.sum(degrees)
         samples = np.random.choice(
@@ -97,7 +92,6 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             yield self.__getitem__(idx)
 
     def __getitem__(self, idx):
-        #  worker_info = torch.utils.data.get_worker_info()
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):
@@ -264,7 +258,6 @@ class GraphDataset(torch.utils.data.Dataset):
             restart_prob=self.restart_prob,
             max_nodes_per_seed=max_nodes_per_seed,
         )
-        #  dgl.contrib.sampling.sampler._CAPI_NeighborSampling
 
         graph_q = data_util._rwr_trace_to_dgl_graph(
             g=self.graphs[graph_idx],
@@ -300,7 +293,7 @@ class NodeClassificationDataset(GraphDataset):
         self.step_dist = step_dist
         assert positional_embedding_size > 1
 
-        self.data = data_util.create_node_classification_dataset(dataset)[0]
+        self.data = data_util.create_node_classification_dataset(dataset).data
         self.graphs = [self._create_dgl_graph(self.data)]
         self.length = sum([g.number_of_nodes() for g in self.graphs])
         self.total = self.length
@@ -312,7 +305,6 @@ class NodeClassificationDataset(GraphDataset):
         graph.add_nodes(num_nodes)
         graph.add_edges(src, dst)
         graph.add_edges(dst, src)
-        # assert all(graph.out_degrees() != 0)
         graph.readonly()
         return graph
 
@@ -335,8 +327,7 @@ class GraphClassificationDataset(NodeClassificationDataset):
         self.entire_graph = True
         assert positional_embedding_size > 1
 
-        self.dataset = data_util.create_graph_classification_dataset(dataset)
-        self.graphs = [self._create_dgl_graph(data) for data in self.dataset]
+        self.graphs = data_util.create_graph_classification_dataset(dataset).graph_lists
 
         self.length = len(self.graphs)
         self.total = self.length
@@ -365,7 +356,7 @@ class GraphClassificationDatasetLabeled(GraphClassificationDataset):
             positional_embedding_size,
             step_dist,
         )
-        self.num_classes = self.dataset.data.y.max().item() + 1
+        self.num_classes = self.dataset.num_labels
         self.entire_graph = True
         self.dict = [self.getitem(idx) for idx in range(len(self))]
 
@@ -390,7 +381,7 @@ class GraphClassificationDatasetLabeled(GraphClassificationDataset):
             positional_embedding_size=self.positional_embedding_size,
             entire_graph=True,
         )
-        return graph_q, self.dataset.data.y[graph_idx].item()
+        return graph_q, self.dataset.graph_labels[graph_idx].item()
 
 
 class NodeClassificationDatasetLabeled(NodeClassificationDataset):
