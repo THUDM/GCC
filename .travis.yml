@@ -24,8 +24,8 @@ install:
   - conda activate gcc
   - pip install torch==1.4.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
   - pip install dgl
-  - conda install -c conda-forge rdkit=2019.09.2
   - pip install -r requirements.txt
+  - conda install -c conda-forge rdkit=2019.09.2
   - python scripts/download.py --url https://drive.google.com/open?id=12kmPV3XjVufxbIVNx5BQr-CFM9SmaFvM --path data --fname downstream.tar.gz
   - python scripts/download.py --url https://drive.google.com/open?id=1lYW_idy9PwSdPEC7j9IH5I5Hc7Qv-22- --path saved --fname pretrained.tar.gz
 
