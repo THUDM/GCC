@@ -6,3 +6,4 @@ black>=19.3b0
 pytest>=5.3.2
 networkx>=2.3
 numpy>=1.18.2
+matplotlib>=3.1.0
