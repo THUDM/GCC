@@ -36,9 +36,9 @@ def test_graphwave_airport():
     assert ret["Micro-F1"] > 0.59, ret["Micro-F1"]
 
 
-def test_graphwave_hindex():
-    ret = run("h-index", "graphwave")
-    assert ret["Micro-F1"] > 0.70, ret["Micro-F1"]
+# def test_graphwave_hindex():
+#     ret = run("h-index", "graphwave")
+#     assert ret["Micro-F1"] > 0.70, ret["Micro-F1"]
 
 
 def test_e2e_airport():
