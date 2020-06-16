@@ -23,12 +23,6 @@ See [INSTALL.md](INSTALL.md).
 
 See [GETTING_STARTED.md](GETTING_STARTED.md).
 
-## Pre-trained Models
-
-We provide pre-trained models available for download.
-
-TODO
-
 ## Citing GCC
 
 If you use GCC in your research or wish to refer to the baseline results, please use the following BibTeX.
