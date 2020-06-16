@@ -28,14 +28,6 @@ python x2dgl.py --graph-dir data_bin/kdd17 --save-file data_bin/dgl/graphs.bin
 
 ### Pretraining
 
-Download Pre-training datasets
-
-```bash
-python scripts/download.py --url https://drive.google.com/open?id=1JCHm39rf7HAJSp-1755wa32ToHCn2Twz --fname small.bin
-# For users in Mainland China, use
-# python scripts/download.py --url https://cloud.tsinghua.edu.cn/f/b37eed70207c468ba367/?dl=1 --fname small.bin
-```
-
 #### E2E
 
 Pretrain E2E with `K = 255`:
@@ -54,7 +46,11 @@ bash scripts/pretrain.sh <gpu> --moco --nce-k 16384
 
 #### Download Pretrained Models
 
-
+```bash
+python scripts/download.py --url https://drive.google.com/open?id=1lYW_idy9PwSdPEC7j9IH5I5Hc7Qv-22- --path saved --fname pretrained.tar.gz
+# For regions where Google is not accessible, use
+# python scripts/download.py --url https://cloud.tsinghua.edu.cn/f/cabec37002a9446d9b20/?dl=1 --path saved --fname pretrained.tar.gz
+```
 
 ### Downstream Tasks
 

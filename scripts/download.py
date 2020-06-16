@@ -152,14 +152,16 @@ def make_dir(path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", type=str)
+    parser.add_argument("--path", type=str)
     parser.add_argument("--fname", type=str)
     args = parser.parse_args()
 
-    path = "data/"
-    make_dir(path)
+    make_dir(args.path)
     if "drive.google.com" in args.url:
         download_from_google_drive(
-            args.url[args.url.index("id=") + 3 :], path + args.fname
+            args.url[args.url.index("id=") + 3 :], os.path.join(args.path, args.fname)
         )
     else:
-        download(args.url, path, args.fname)
+        download(args.url, args.path, args.fname)
+    if "tar.gz" in args.fname:
+        untar(args.path, args.fname)
