@@ -1,7 +1,7 @@
 from .graph_dataset import (
-    LoadBalanceGraphDataset,
     GraphClassificationDataset,
     GraphClassificationDatasetLabeled,
+    LoadBalanceGraphDataset,
     NodeClassificationDataset,
     NodeClassificationDatasetLabeled,
     worker_init_fn,

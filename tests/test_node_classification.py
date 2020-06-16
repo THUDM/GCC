@@ -1,9 +1,8 @@
 import argparse
 import os
 
-from tests.utils import E2E_PATH, MOCO_PATH, get_default_args
-
 from gcc.tasks.node_classification import NodeClassification
+from tests.utils import E2E_PATH, MOCO_PATH, get_default_args
 
 
 def run_for_args(args):

@@ -9,20 +9,20 @@ import argparse
 import os
 import time
 
+import dgl
 import numpy as np
 import tensorboard_logger as tb_logger
 import torch
 
-import dgl
 from gcc.contrastive.criterions import NCESoftmaxLoss, NCESoftmaxLossNS
 from gcc.contrastive.memory_moco import MemoryMoCo
 from gcc.datasets import (
     GRAPH_CLASSIFICATION_DSETS,
     GraphClassificationDataset,
     GraphClassificationDatasetLabeled,
+    LoadBalanceGraphDataset,
     NodeClassificationDataset,
     NodeClassificationDatasetLabeled,
-    LoadBalanceGraphDataset,
     worker_init_fn,
 )
 from gcc.datasets.data_util import batcher

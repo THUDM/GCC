@@ -11,6 +11,7 @@ import os
 import time
 import warnings
 
+import dgl
 import numpy as np
 import psutil
 import torch
@@ -20,20 +21,19 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.tensorboard import SummaryWriter
 
-import dgl
+from gcc.contrastive.criterions import NCESoftmaxLoss, NCESoftmaxLossNS
+from gcc.contrastive.memory_moco import MemoryMoCo
 from gcc.datasets import (
     GRAPH_CLASSIFICATION_DSETS,
     GraphClassificationDataset,
     GraphClassificationDatasetLabeled,
+    LoadBalanceGraphDataset,
     NodeClassificationDataset,
     NodeClassificationDatasetLabeled,
-    LoadBalanceGraphDataset,
     worker_init_fn,
 )
-from gcc.models import GraphEncoder
 from gcc.datasets.data_util import batcher, labeled_batcher
-from gcc.contrastive.criterions import NCESoftmaxLoss, NCESoftmaxLossNS
-from gcc.contrastive.memory_moco import MemoryMoCo
+from gcc.models import GraphEncoder
 from gcc.utils.misc import AverageMeter, adjust_learning_rate, warmup_linear
 
 

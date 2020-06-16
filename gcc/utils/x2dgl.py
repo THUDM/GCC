@@ -5,17 +5,17 @@
 # Create Time: 2019/12/20 13:39
 # TODO:
 
-import re
-import dgl
-from dgl.data.utils import save_graphs
-from dgl.data import AmazonCoBuy, Coauthor
-import scipy.sparse as sp
 import argparse
-import pathlib
 import logging
-import torch
+import pathlib
+import re
 
+import dgl
 import numpy as np
+import scipy.sparse as sp
+import torch
+from dgl.data import AmazonCoBuy, Coauthor
+from dgl.data.utils import save_graphs
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",

@@ -9,10 +9,11 @@ import dgl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from gcc.models.mpnn import UnsupervisedMPNN
+from dgl.nn.pytorch import Set2Set
+
 from gcc.models.gat import UnsupervisedGAT
 from gcc.models.gin import UnsupervisedGIN
-from dgl.nn.pytorch import Set2Set
+from gcc.models.mpnn import UnsupervisedMPNN
 
 
 class GraphEncoder(nn.Module):

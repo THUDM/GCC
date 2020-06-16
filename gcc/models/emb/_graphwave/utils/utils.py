@@ -2,12 +2,14 @@
 """
 @author: cdonnat
 """
+import gzip
+import pickle
+import re
+
+import networkx as nx
+
 ### Random tools useful for saveing stuff and manipulating pickle/numpy objects
 import numpy as np
-import pickle
-import gzip
-import re
-import networkx as nx
 
 
 def save_obj(obj, name, path, compress=False):

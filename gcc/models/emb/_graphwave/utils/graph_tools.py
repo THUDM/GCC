@@ -5,8 +5,8 @@ Tools for the analysis of the Graph
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import seaborn as sb
 import scipy as sc
+import seaborn as sb
 
 
 def laplacian(a):

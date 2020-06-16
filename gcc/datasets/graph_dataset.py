@@ -8,15 +8,15 @@
 import math
 import operator
 
+import dgl
+import dgl.data
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import torch
-
-import dgl
-import dgl.data
 from dgl.data import AmazonCoBuy, Coauthor
 from dgl.nodeflow import NodeFlow
+
 from gcc.datasets import data_util
 
 

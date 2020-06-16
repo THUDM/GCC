@@ -1,5 +1,5 @@
-import copy
 import argparse
+import copy
 import random
 import warnings
 from collections import defaultdict
@@ -20,7 +20,6 @@ from sklearn.utils import shuffle as skshuffle
 from tqdm import tqdm
 
 from gcc.datasets.data_util import create_graph_classification_dataset
-
 from gcc.tasks import build_model
 
 warnings.filterwarnings("ignore")

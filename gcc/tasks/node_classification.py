@@ -1,7 +1,7 @@
+import argparse
 import copy
 import random
 import warnings
-import argparse
 from collections import defaultdict
 
 import networkx as nx

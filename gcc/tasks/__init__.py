@@ -1,10 +1,10 @@
 from gcc.models.emb import (
-    Zero,
     FromNumpy,
     FromNumpyAlign,
     FromNumpyGraph,
-    ProNE,
     GraphWave,
+    ProNE,
+    Zero,
 )
 
 

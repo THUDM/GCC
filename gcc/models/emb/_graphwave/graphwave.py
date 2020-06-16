@@ -1,17 +1,20 @@
 import copy
 import math
+import os
+import sys
+
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import scipy as sc
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
-import sys, os
 
-sys.path.append("../")
 from .characteristic_functions import charac_function, charac_function_multiscale
 from .utils.graph_tools import laplacian
+
+sys.path.append("../")
 
 
 TAUS = [1, 10, 25, 50]

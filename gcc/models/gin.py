@@ -5,12 +5,12 @@
 # Create Time: 2020/01/09 20:49
 # TODO:
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch.conv import GINConv
-from dgl.nn.pytorch.glob import SumPooling, AvgPooling, MaxPooling
-import numpy as np
+from dgl.nn.pytorch.glob import AvgPooling, MaxPooling, SumPooling
 
 
 class SELayer(nn.Module):

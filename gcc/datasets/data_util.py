@@ -11,6 +11,7 @@ import os
 import os.path as osp
 from collections import defaultdict, namedtuple
 
+import dgl
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -18,10 +19,8 @@ import scipy.sparse as sparse
 import sklearn.preprocessing as preprocessing
 import torch
 import torch.nn.functional as F
-from scipy.sparse import linalg
-
-import dgl
 from dgl.data.tu import TUDataset
+from scipy.sparse import linalg
 
 
 def batcher():
