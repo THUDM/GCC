@@ -4,7 +4,7 @@ from ._graphwave import graphwave_alg
 
 
 class GraphWave(object):
-    def __init__(self, dimension, scale=100):
+    def __init__(self, dimension, scale=100, **kwargs):
         self.dimension = dimension
         self.scale = scale
 

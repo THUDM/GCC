@@ -5,7 +5,7 @@ import numpy as np
 
 
 class Zero(object):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, **kwargs):
         self.hidden_size = hidden_size
 
     def train(self, G):
@@ -13,7 +13,7 @@ class Zero(object):
 
 
 class FromNumpy(object):
-    def __init__(self, hidden_size, emb_path):
+    def __init__(self, hidden_size, emb_path, **kwargs):
         super(FromNumpy, self).__init__()
         self.hidden_size = hidden_size
         self.emb = np.load(emb_path)
@@ -32,7 +32,7 @@ class FromNumpyGraph(FromNumpy):
 
 
 class FromNumpyAlign(object):
-    def __init__(self, hidden_size, emb_path_1, emb_path_2):
+    def __init__(self, hidden_size, emb_path_1, emb_path_2, **kwargs):
         self.hidden_size = hidden_size
         self.emb_1 = np.load(emb_path_1)
         self.emb_2 = np.load(emb_path_2)

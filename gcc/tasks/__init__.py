@@ -8,9 +8,7 @@ from gcc.models.emb import (
 )
 
 
-def build_model(name, hidden_size, *emb_paths):
-    if emb_paths[0] == "":
-        emb_paths = []
+def build_model(name, hidden_size, **model_args):
     return {
         "zero": Zero,
         "from_numpy": FromNumpy,
@@ -18,7 +16,4 @@ def build_model(name, hidden_size, *emb_paths):
         "from_numpy_graph": FromNumpyGraph,
         "prone": ProNE,
         "graphwave": GraphWave,
-    }[name](hidden_size, *emb_paths)
-
-
-all = ["build_model"]
+    }[name](hidden_size, **model_args)

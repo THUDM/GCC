@@ -8,7 +8,7 @@ from sklearn.utils.extmath import randomized_svd
 
 
 class ProNE(object):
-    def __init__(self, dimension, step=5, mu=0.2, theta=0.5):
+    def __init__(self, dimension, step=5, mu=0.2, theta=0.5, **kwargs):
         self.dimension = dimension
         self.step = step
         self.mu = mu
