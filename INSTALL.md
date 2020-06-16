@@ -4,9 +4,9 @@
 
 - Linux with Python ≥ 3.6
 - PyTorch ≥ 1.4.0
-- [DGL with CUDA](https://www.dgl.ai/pages/start.html)
+- [DGL ≥ 0.4.1](https://www.dgl.ai/pages/start.html)
 - `pip install -r requirements.txt`
-- Install [RDKit](conda install -c conda-forge rdkit) with `conda install -c conda-forge rdkit`.
+- Install [RDKit](conda install -c conda-forge rdkit) with `conda install -c conda-forge rdkit=2019.09.2`.
 
 ### Datasets
 
