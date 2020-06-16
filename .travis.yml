@@ -1,0 +1,19 @@
+language: python
+
+python:
+  - "3.6"
+
+install:
+  - pip install torch==1.4.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+  - pip install dgl
+  - pip install -r requirements.txt
+
+script:
+  - black .
+  - coverage run -m pytest tests
+
+after_success:
+- coveralls
+
+notifications:
+  email: false
