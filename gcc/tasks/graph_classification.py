@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore")
 
 
 class GraphClassification(object):
-    def __init__(self, dataset, model, hidden_size, emb_path, num_shuffle, seed):
+    def __init__(self, dataset, model, hidden_size, num_shuffle, seed, **model_args):
         assert model == "from_numpy_graph"
         dataset = create_graph_classification_dataset(dataset)
         self.num_nodes = dataset.graph_labels.shape[0]
@@ -34,7 +34,7 @@ class GraphClassification(object):
         self.label_matrix = np.zeros((self.num_nodes, self.num_classes), dtype=int)
         self.labels = dataset.graph_labels
 
-        self.model = build_model(model, hidden_size, emb_path)
+        self.model = build_model(model, hidden_size, **model_args)
         self.hidden_size = hidden_size
         self.num_shuffle = num_shuffle
         self.seed = seed
@@ -77,9 +77,9 @@ if __name__ == "__main__":
         args.dataset,
         args.model,
         args.hidden_size,
-        args.emb_path,
         args.num_shuffle,
         args.seed,
+        emb_path=args.emb_path,
     )
     ret = task.train()
     print(ret)

@@ -6,6 +6,9 @@ TODO: For a tutorial that involves actual coding with the API,
 see our [Colab Notebook]()
 
   - [Pretraining](#pretraining)
+    - [E2E](#e2e)
+    - [MoCo](#moco)
+    - [Download Pretrained Models](#download-pretrained-models)
   - [Downstream Tasks](#downstream-tasks)
     - [Node Classification](#node-classification)
       - [NC Unsupervised](#nc-unsupervised)
@@ -33,41 +36,25 @@ python scripts/download.py --url https://drive.google.com/open?id=1JCHm39rf7HAJS
 # python scripts/download.py --url https://cloud.tsinghua.edu.cn/f/b37eed70207c468ba367/?dl=1 --fname small.bin
 ```
 
-Run negative sampling (number negative samples = batch_size - 1, default to 32)
+#### E2E
 
-```
-bash scripts/pretrain.sh <gpu>
-```
+Pretrain E2E with `K = 255`:
 
-Run negative sampling with larger batch size (and negative sample size)
-
-```
+```bash
 bash scripts/pretrain.sh <gpu> --batch-size 256
 ```
 
-Run moco with queue size = 32:
+#### MoCo
 
-```
-bash scripts/pretrain.sh <gpu> --moco
-```
+Pretrain MoCo with `K = 16384; m = 0.999`:
 
-Run moco with larger queue size:
-
-```
-bash scripts/pretrain.sh <gpu> --moco --nce-k 256
+```bash
+bash scripts/pretrain.sh <gpu> --moco --nce-k 16384
 ```
 
-Run with larger model hidden size:
+#### Download Pretrained Models
 
-```
-bash scripts/pretrain.sh ... --hidden-size 512
-```
 
-Run with degrees as input features:
-
-```
-bash scripts/pretrain.sh ... --degree-input
-```
 
 ### Downstream Tasks
 

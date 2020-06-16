@@ -81,7 +81,6 @@ def parse_option():
     parser.add_argument("--set2set-lstm-layer", type=int, default=3, help="lstm layers for s2s")
     parser.add_argument("--set2set-iter", type=int, default=6, help="s2s iteration")
     parser.add_argument("--norm", action="store_true", default=True, help="apply 2-norm on output feats")
-    parser.add_argument("--degree-input", action="store_true", help="concat node degree embeddings to input features")
 
     # loss function
     parser.add_argument("--nce-k", type=int, default=32)
@@ -149,7 +148,7 @@ def option_update(opt):
         opt.restart_prob,
         opt.aug,
         opt.finetune,
-        opt.degree_embedding_size if opt.degree_input else 0,
+        opt.degree_embedding_size,
         opt.positional_embedding_size,
         opt.alpha,
     )
@@ -615,7 +614,7 @@ def main(args):
             num_layer_set2set=args.set2set_lstm_layer,
             norm=args.norm,
             gnn_model=args.model,
-            degree_input=args.degree_input,
+            degree_input=True,
         )
         for _ in range(2)
     ]
