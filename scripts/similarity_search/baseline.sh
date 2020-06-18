@@ -1,8 +1,9 @@
 #!/bin/bash
 hidden_size=$1
-ARGS=${@:2}
+model=$2
+ARGS=${@:3}
 
-for dataset in kdd_icdm sigir_cikm sigmod_icde 
+for dataset in $ARGS
 do
-    python cogdl/scripts/train.py --task align --dataset $dataset --seed 0 --hidden-size $hidden_size --model $ARGS
+  python gcc/tasks/similarity_search.py --dataset $dataset --hidden-size $hidden_size --model $model
 done

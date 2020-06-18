@@ -27,5 +27,10 @@ See [GETTING_STARTED.md](GETTING_STARTED.md).
 If you use GCC in your research or wish to refer to the baseline results, please use the following BibTeX.
 
 ```
-
+@article{qiu2020gcc,
+  title={GCC: Graph Contrastive Coding for Graph Neural Network Pre-Training},
+  author={Qiu, Jiezhong and Chen, Qibin and Dong, yuxiao and Zhang, Jing and Yang, Hongxia and Ding, Ming and Wang, Kuansan and Tang, Jie},
+  journal={arXiv preprint arXiv:2006.09963},
+  year={2020}
+}
 ```

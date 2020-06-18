@@ -1,8 +1,7 @@
 #!/bin/bash
-gpu=$1
-load_path=$2
-hidden_size=$3
-ARGS=${@:4}
+load_path=$1
+hidden_size=$2
+ARGS=${@:3}
 
 for dataset in $ARGS
 do
