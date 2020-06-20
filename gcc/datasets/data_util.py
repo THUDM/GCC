@@ -108,6 +108,88 @@ class Edgelist(object):
         return torch.LongTensor(edge_list).t(), y, node2id
 
 
+class SSSingleDataset(object):
+    def __init__(self, root, name):
+        edge_index = self._preprocess(root, name)
+        self.data = Data(x=None, edge_index=edge_index, y=None)
+        self.transform = None
+
+    def get(self, idx):
+        assert idx == 0
+        return self.data
+
+    def _preprocess(self, root, name):
+        graph_path = os.path.join(root, name + ".graph")
+
+        with open(graph_path) as f:
+            edge_list = []
+            node2id = defaultdict(int)
+            f.readline()
+            for line in f:
+                x, y, t = list(map(int, line.split()))
+                # Reindex
+                if x not in node2id:
+                    node2id[x] = len(node2id)
+                if y not in node2id:
+                    node2id[y] = len(node2id)
+                # repeat t times
+                for _ in range(t):
+                    # to undirected
+                    edge_list.append([node2id[x], node2id[y]])
+                    edge_list.append([node2id[y], node2id[x]])
+
+        num_nodes = len(node2id)
+
+        return torch.LongTensor(edge_list).t()
+
+class SSDataset(object):
+    def __init__(self, root, name1, name2):
+        edge_index_1, dict_1, self.node2id_1 = self._preprocess(root, name1)
+        edge_index_2, dict_2, self.node2id_2 = self._preprocess(root, name2)
+        self.data = [
+            Data(x=None, edge_index=edge_index_1, y=dict_1),
+            Data(x=None, edge_index=edge_index_2, y=dict_2),
+        ]
+        self.transform = None
+
+    def get(self, idx):
+        assert idx == 0
+        return self.data
+
+    def _preprocess(self, root, name):
+        dict_path = os.path.join(root, name + ".dict")
+        graph_path = os.path.join(root, name + ".graph")
+
+        with open(graph_path) as f:
+            edge_list = []
+            node2id = defaultdict(int)
+            f.readline()
+            for line in f:
+                x, y, t = list(map(int, line.split()))
+                # Reindex
+                if x not in node2id:
+                    node2id[x] = len(node2id)
+                if y not in node2id:
+                    node2id[y] = len(node2id)
+                # repeat t times
+                for _ in range(t):
+                    # to undirected
+                    edge_list.append([node2id[x], node2id[y]])
+                    edge_list.append([node2id[y], node2id[x]])
+
+        name_dict = dict()
+        with open(dict_path) as f:
+            for line in f:
+                name, str_x = line.split("\t")
+                x = int(str_x)
+                if x not in node2id:
+                    node2id[x] = len(node2id)
+                name_dict[name] = node2id[x]
+
+        num_nodes = len(node2id)
+
+        return torch.LongTensor(edge_list).t(), name_dict, node2id
+
 def create_node_classification_dataset(dataset_name):
     if "airport" in dataset_name:
         return Edgelist(
@@ -127,6 +209,8 @@ def create_node_classification_dataset(dataset_name):
                 "h-index": "aminer_hindex_rand20intop200_5000",
             }[dataset_name],
         )
+    elif dataset_name in ["kdd", "icdm", "sigir", "cikm", "sigmod", "icde"]:
+        return SSSingleDataset("data/panther/", dataset_name)
     else:
         raise NotImplementedError
 
