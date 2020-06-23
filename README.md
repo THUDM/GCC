@@ -8,9 +8,9 @@
 
 -------------------------------------
 
-# GCC: Graph Contrastive Coding
+# GCC: Graph Contrastive Coding for Graph Neural Network Pre-Training
 
-Original implementation for paper [Graph Contrastive Coding for Graph Neural Network Pre-Training](https://arxiv.org/abs/2006.09963).
+Original implementation for paper [GCC: Graph Contrastive Coding for Graph Neural Network Pre-Training](https://arxiv.org/abs/2006.09963).
 
 GCC is a **contrastive learning** framework that implements unsupervised structural graph representation pre-training and achieves state-of-the-art on 10 datasets on 3 graph mining tasks.
 
