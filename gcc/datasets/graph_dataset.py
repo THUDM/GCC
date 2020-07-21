@@ -38,7 +38,7 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         positional_embedding_size=32,
         step_dist=[1.0, 0.0, 0.0],
         num_workers=1,
-        dgl_graphs_file="./data_bin/dgl/small.bin",
+        dgl_graphs_file="./data/small.bin",
         num_samples=10000,
         num_copies=1,
         graph_transform=None,

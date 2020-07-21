@@ -551,7 +551,7 @@ def main(args):
             positional_embedding_size=args.positional_embedding_size,
             num_workers=args.num_workers,
             num_samples=args.num_samples,
-            dgl_graphs_file="./data_bin/dgl/small.bin",
+            dgl_graphs_file="./data/small.bin",
             num_copies=args.num_copies,
         )
     else:
