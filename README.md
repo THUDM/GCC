@@ -22,6 +22,26 @@ See [INSTALL.md](INSTALL.md).
 
 See [GETTING_STARTED.md](GETTING_STARTED.md).
 
+## Common Issues
+
+<details>
+<summary>
+"XXX file not found" when running pretraining/downstream tasks.
+</summary>
+<br/>
+Please make sure you've downloaded the pretraining dataset or downstream task datasets according to GETTING_STARTED.md.
+</details>
+
+<details>
+<summary>
+Server crashes/hangs after launching pretraining experiments.
+</summary>
+<br/>
+In addition to GPU, our pretraining stage requires a lot of computation resources, including CPU and RAM. If this happens, it usually means the CPU/RAM is exhausted on your machine. You can decrease `--num-workers` (number of dataloaders using CPU) and `--num-copies` (number of datasets copies residing in RAM). With the lowest profile, try `--num-workers 1 --num-copies 1`.
+
+If this still fails, please upgrade your machine :). In the meanwhile, you can still download our pretrained model and evaluate it on downstream tasks.
+</details>
+
 ## Citing GCC
 
 If you use GCC in your research or wish to refer to the baseline results, please use the following BibTeX.

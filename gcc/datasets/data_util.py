@@ -250,7 +250,7 @@ def eigen_decomposision(n, k, laplacian, hidden_size, retry):
         try:
             s, u = linalg.eigsh(laplacian, k=k, which="LA", ncv=ncv, v0=v0)
         except sparse.linalg.eigen.arpack.ArpackError:
-            print("arpack error, retry=", i)
+            # print("arpack error, retry=", i)
             ncv = min(ncv * 2, n)
             if i + 1 == retry:
                 sparse.save_npz("arpack_error_sparse_matrix.npz", laplacian)
