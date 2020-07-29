@@ -153,7 +153,9 @@ bash scripts/finetune.sh <load_path> <gpu> imdb-binary
 
 #### Similarity Search (Table 4)
 
-Run graphwave on multiple datasets with `bash scripts/similarity_search/baseline.sh <hidden_size> graphwave kdd_icdm sigir_cikm sigmod_icde`.
+Run baseline (graphwave) on multiple datasets with `bash scripts/similarity_search/baseline.sh <hidden_size> graphwave kdd_icdm sigir_cikm sigmod_icde`.
+
+Run GCC:
 
 ```bash
 bash scripts/generate.sh <gpu> <load_path> kdd icdm sigir cikm sigmod icde
