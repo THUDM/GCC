@@ -34,6 +34,7 @@ GCC is a **contrastive learning** framework that implements unsupervised structu
       - [Similarity Search (Table 4)](#similarity-search-table-4)
   - [❗ Common Issues](#-common-issues)
   - [Citing GCC](#citing-gcc)
+  - [Acknowledgements](#acknowledgements)
 
 ## Installation
 
@@ -194,3 +195,7 @@ If you use GCC in your research or wish to refer to the baseline results, please
   year={2020}
 }
 ```
+
+## Acknowledgements
+
+Part of this code is inspired by Yonglong Tian et al.'s [CMC: Contrastive Multiview Coding](https://github.com/HobbitLong/CMC).
