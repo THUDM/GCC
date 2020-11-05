@@ -26,11 +26,25 @@ NB_FILTERS = 2
 
 
 def compute_cheb_coeff(scale, order):
+    """
+    Computes the coefficients of the coefficients.
+
+    Args:
+        scale: (float): write your description
+        order: (todo): write your description
+    """
     coeffs = [(-scale) ** k * 1.0 / math.factorial(k) for k in range(order + 1)]
     return coeffs
 
 
 def compute_cheb_coeff_basis(scale, order):
+    """
+    Compute the coefficients coefficients.
+
+    Args:
+        scale: (float): write your description
+        order: (int): write your description
+    """
     xx = np.array(
         [np.cos((2 * i - 1) * 1.0 / (2 * order) * math.pi) for i in range(1, order + 1)]
     )

@@ -24,7 +24,18 @@ from scipy.sparse import linalg
 
 
 def batcher():
+    """
+    Batch batches of batches
+
+    Args:
+    """
     def batcher_dev(batch):
+        """
+        Compute a batch
+
+        Args:
+            batch: (todo): write your description
+        """
         graph_q, graph_k = zip(*batch)
         graph_q, graph_k = dgl.batch(graph_q), dgl.batch(graph_k)
         return graph_q, graph_k
@@ -33,7 +44,18 @@ def batcher():
 
 
 def labeled_batcher():
+    """
+    Returns a tensor that returns a tensor.
+
+    Args:
+    """
     def batcher_dev(batch):
+        """
+        Returns a tensor of a tensor.
+
+        Args:
+            batch: (todo): write your description
+        """
         graph_q, label = zip(*batch)
         graph_q = dgl.batch(graph_q)
         return graph_q, torch.LongTensor(label)
@@ -45,6 +67,12 @@ Data = namedtuple("Data", ["x", "edge_index", "y"])
 
 
 def create_graph_classification_dataset(dataset_name):
+    """
+    Create classification dataset.
+
+    Args:
+        dataset_name: (str): write your description
+    """
     name = {
         "imdb-binary": "IMDB-BINARY",
         "imdb-multi": "IMDB-MULTI",
@@ -60,6 +88,14 @@ def create_graph_classification_dataset(dataset_name):
 
 class Edgelist(object):
     def __init__(self, root, name):
+        """
+        Initialize the index.
+
+        Args:
+            self: (todo): write your description
+            root: (str): write your description
+            name: (str): write your description
+        """
         self.name = name
         edge_list_path = os.path.join(root, name + ".edgelist")
         node_label_path = os.path.join(root, name + ".nodelabel")
@@ -68,10 +104,25 @@ class Edgelist(object):
         self.transform = None
 
     def get(self, idx):
+        """
+        Return the index with idx
+
+        Args:
+            self: (todo): write your description
+            idx: (int): write your description
+        """
         assert idx == 0
         return self.data
 
     def _preprocess(self, edge_list_path, node_label_path):
+        """
+        Preprocess a list of edge ids.
+
+        Args:
+            self: (todo): write your description
+            edge_list_path: (str): write your description
+            node_label_path: (str): write your description
+        """
         with open(edge_list_path) as f:
             edge_list = []
             node2id = defaultdict(int)
@@ -110,15 +161,38 @@ class Edgelist(object):
 
 class SSSingleDataset(object):
     def __init__(self, root, name):
+        """
+        Create a new index.
+
+        Args:
+            self: (todo): write your description
+            root: (str): write your description
+            name: (str): write your description
+        """
         edge_index = self._preprocess(root, name)
         self.data = Data(x=None, edge_index=edge_index, y=None)
         self.transform = None
 
     def get(self, idx):
+        """
+        Return the index with idx
+
+        Args:
+            self: (todo): write your description
+            idx: (int): write your description
+        """
         assert idx == 0
         return self.data
 
     def _preprocess(self, root, name):
+        """
+        Preprocess the graph.
+
+        Args:
+            self: (todo): write your description
+            root: (todo): write your description
+            name: (str): write your description
+        """
         graph_path = os.path.join(root, name + ".graph")
 
         with open(graph_path) as f:
@@ -144,6 +218,15 @@ class SSSingleDataset(object):
 
 class SSDataset(object):
     def __init__(self, root, name1, name2):
+        """
+        Initialize the index.
+
+        Args:
+            self: (todo): write your description
+            root: (str): write your description
+            name1: (str): write your description
+            name2: (str): write your description
+        """
         edge_index_1, dict_1, self.node2id_1 = self._preprocess(root, name1)
         edge_index_2, dict_2, self.node2id_2 = self._preprocess(root, name2)
         self.data = [
@@ -153,10 +236,25 @@ class SSDataset(object):
         self.transform = None
 
     def get(self, idx):
+        """
+        Return the index with idx
+
+        Args:
+            self: (todo): write your description
+            idx: (int): write your description
+        """
         assert idx == 0
         return self.data
 
     def _preprocess(self, root, name):
+        """
+        Preprocesses a file with the graph.
+
+        Args:
+            self: (todo): write your description
+            root: (todo): write your description
+            name: (str): write your description
+        """
         dict_path = os.path.join(root, name + ".dict")
         graph_path = os.path.join(root, name + ".graph")
 
@@ -191,6 +289,12 @@ class SSDataset(object):
         return torch.LongTensor(edge_list).t(), name_dict, node2id
 
 def create_node_classification_dataset(dataset_name):
+    """
+    Create a classification classification.
+
+    Args:
+        dataset_name: (str): write your description
+    """
     if "airport" in dataset_name:
         return Edgelist(
             "data/struc2vec/",
@@ -218,6 +322,16 @@ def create_node_classification_dataset(dataset_name):
 def _rwr_trace_to_dgl_graph(
     g, seed, trace, positional_embedding_size, entire_graph=False
 ):
+    """
+    Convert an rwr graph to an rwr graph.
+
+    Args:
+        g: (todo): write your description
+        seed: (todo): write your description
+        trace: (bool): write your description
+        positional_embedding_size: (int): write your description
+        entire_graph: (bool): write your description
+    """
     subv = torch.unique(torch.cat(trace)).tolist()
     try:
         subv.remove(seed)
@@ -240,6 +354,16 @@ def _rwr_trace_to_dgl_graph(
 
 
 def eigen_decomposision(n, k, laplacian, hidden_size, retry):
+    """
+    Decomposes the eigenvalue.
+
+    Args:
+        n: (array): write your description
+        k: (array): write your description
+        laplacian: (array): write your description
+        hidden_size: (int): write your description
+        retry: (bool): write your description
+    """
     if k <= 0:
         return torch.zeros(n, hidden_size)
     laplacian = laplacian.astype("float64")
@@ -264,6 +388,14 @@ def eigen_decomposision(n, k, laplacian, hidden_size, retry):
 
 
 def _add_undirected_graph_positional_embedding(g, hidden_size, retry=10):
+    """
+    Add an embedding for an adjding.
+
+    Args:
+        g: (todo): write your description
+        hidden_size: (int): write your description
+        retry: (bool): write your description
+    """
     # We use eigenvectors of normalized graph laplacian as vertex features.
     # It could be viewed as a generalization of positional embedding in the
     # attention is all you need paper.

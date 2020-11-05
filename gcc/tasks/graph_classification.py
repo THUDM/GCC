@@ -27,6 +27,18 @@ warnings.filterwarnings("ignore")
 
 class GraphClassification(object):
     def __init__(self, dataset, model, hidden_size, num_shuffle, seed, **model_args):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            dataset: (todo): write your description
+            model: (todo): write your description
+            hidden_size: (int): write your description
+            num_shuffle: (int): write your description
+            seed: (int): write your description
+            model_args: (dict): write your description
+        """
         assert model == "from_numpy_graph"
         dataset = create_graph_classification_dataset(dataset)
         self.num_nodes = dataset.graph_labels.shape[0]
@@ -40,11 +52,26 @@ class GraphClassification(object):
         self.seed = seed
 
     def train(self):
+        """
+        Train the model.
+
+        Args:
+            self: (todo): write your description
+        """
         embeddings = self.model.train(None)
 
         return self.svc_classify(embeddings, self.labels, False)
 
     def svc_classify(self, x, y, search):
+        """
+        Classify the classifier
+
+        Args:
+            self: (todo): write your description
+            x: (todo): write your description
+            y: (todo): write your description
+            search: (todo): write your description
+        """
         kf = StratifiedKFold(n_splits=10, shuffle=True, random_state=self.seed)
         accuracies = []
         for train_index, test_index in kf.split(x, y):

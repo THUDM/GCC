@@ -45,6 +45,19 @@ class UnsupervisedMPNN(nn.Module):
         num_step_message_passing=6,
         lstm_as_gate=False,
     ):
+        """
+        Initialize the network.
+
+        Args:
+            self: (todo): write your description
+            output_dim: (int): write your description
+            node_input_dim: (int): write your description
+            node_hidden_dim: (int): write your description
+            edge_input_dim: (int): write your description
+            edge_hidden_dim: (int): write your description
+            num_step_message_passing: (int): write your description
+            lstm_as_gate: (todo): write your description
+        """
         super(UnsupervisedMPNN, self).__init__()
 
         self.num_step_message_passing = num_step_message_passing

@@ -61,6 +61,29 @@ class GraphEncoder(nn.Module):
         degree_input=False,
         lstm_as_gate=False,
     ):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            positional_embedding_size: (int): write your description
+            max_node_freq: (int): write your description
+            max_edge_freq: (int): write your description
+            max_degree: (int): write your description
+            freq_embedding_size: (int): write your description
+            degree_embedding_size: (int): write your description
+            output_dim: (int): write your description
+            node_hidden_dim: (int): write your description
+            edge_hidden_dim: (int): write your description
+            num_layers: (int): write your description
+            num_heads: (int): write your description
+            num_step_set2set: (int): write your description
+            num_layer_set2set: (int): write your description
+            norm: (todo): write your description
+            gnn_model: (todo): write your description
+            degree_input: (int): write your description
+            lstm_as_gate: (todo): write your description
+        """
         super(GraphEncoder, self).__init__()
 
         if degree_input:

@@ -54,6 +54,12 @@ def test_moco(train_loader, model, opt):
 
 
 def main(args_test):
+    """
+    Main function.
+
+    Args:
+        args_test: (todo): write your description
+    """
     if os.path.isfile(args_test.load_path):
         print("=> loading checkpoint '{}'".format(args_test.load_path))
         checkpoint = torch.load(args_test.load_path, map_location="cpu")

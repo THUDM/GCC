@@ -8,10 +8,22 @@ MOCO_PATH = "saved/Pretrain_moco_True_dgl_gin_layer_5_lr_0.005_decay_1e-05_bsz_3
 
 
 def get_default_args():
+    """
+    Returns the default argparse.
+
+    Args:
+    """
     return argparse.Namespace(hidden_size=64, seed=0, num_shuffle=10)
 
 
 def generate_emb(load_path, dataset):
+    """
+    Generate cuda dataset.
+
+    Args:
+        load_path: (str): write your description
+        dataset: (todo): write your description
+    """
     args = argparse.Namespace(
         load_path=load_path,
         dataset=dataset,

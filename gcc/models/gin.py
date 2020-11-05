@@ -17,6 +17,14 @@ class SELayer(nn.Module):
     """Squeeze-and-excitation networks"""
 
     def __init__(self, in_channels, se_channels):
+        """
+        Initialize the channel.
+
+        Args:
+            self: (todo): write your description
+            in_channels: (int): write your description
+            se_channels: (bool): write your description
+        """
         super(SELayer, self).__init__()
 
         self.in_channels = in_channels
@@ -43,6 +51,14 @@ class ApplyNodeFunc(nn.Module):
     """Update the node feature hv with MLP, BN and ReLU."""
 
     def __init__(self, mlp, use_selayer):
+        """
+        Initialize the rdf layer.
+
+        Args:
+            self: (todo): write your description
+            mlp: (str): write your description
+            use_selayer: (bool): write your description
+        """
         super(ApplyNodeFunc, self).__init__()
         self.mlp = mlp
         self.bn = (
@@ -52,6 +68,13 @@ class ApplyNodeFunc(nn.Module):
         )
 
     def forward(self, h):
+        """
+        Forward this function.
+
+        Args:
+            self: (todo): write your description
+            h: (todo): write your description
+        """
         h = self.mlp(h)
         h = self.bn(h)
         h = F.relu(h)
@@ -105,6 +128,13 @@ class MLP(nn.Module):
                 )
 
     def forward(self, x):
+        """
+        R forward computation.
+
+        Args:
+            self: (todo): write your description
+            x: (todo): write your description
+        """
         if self.linear_or_not:
             # If linear model
             return self.linear(x)
@@ -211,6 +241,15 @@ class UnsupervisedGIN(nn.Module):
             raise NotImplementedError
 
     def forward(self, g, h, efeat):
+        """
+        Forward computation.
+
+        Args:
+            self: (todo): write your description
+            g: (todo): write your description
+            h: (todo): write your description
+            efeat: (todo): write your description
+        """
         # list of hidden representation at each layer (including input)
         hidden_rep = [h]
 

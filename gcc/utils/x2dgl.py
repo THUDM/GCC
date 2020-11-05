@@ -26,6 +26,12 @@ logger = logging.getLogger(__name__)
 
 
 def yuxiao_kdd17_graph_to_dgl(file):
+    """
+    Convert kdd17 graph into kdd17 matrix.
+
+    Args:
+        file: (str): write your description
+    """
     logger.info("processing %s", file)
     with open(file, "r") as f:
         n = int(f.readline().split()[1])

@@ -24,6 +24,18 @@ class UnsupervisedGCN(nn.Module):
         set2set_lstm_layer: int = 3,
         set2set_iter: int = 6,
     ):
+        """
+        Initialize the network.
+
+        Args:
+            self: (todo): write your description
+            hidden_size: (int): write your description
+            num_layer: (int): write your description
+            readout: (todo): write your description
+            layernorm: (todo): write your description
+            set2set_lstm_layer: (todo): write your description
+            set2set_iter: (todo): write your description
+        """
         super(UnsupervisedGCN, self).__init__()
         self.layers = nn.ModuleList(
             [
@@ -56,6 +68,15 @@ class UnsupervisedGCN(nn.Module):
             # self.ln = nn.BatchNorm1d(hidden_size, affine=False)
 
     def forward(self, g, feats, efeats=None):
+        """
+        Forward computation.
+
+        Args:
+            self: (todo): write your description
+            g: (todo): write your description
+            feats: (todo): write your description
+            efeats: (todo): write your description
+        """
         for layer in self.layers:
             feats = layer(g, feats)
         feats = self.readout(g, feats)
