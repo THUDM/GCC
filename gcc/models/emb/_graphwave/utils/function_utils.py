@@ -12,6 +12,13 @@ from .graph_tools import *
 
 
 def h(x, epsilon=10 ** (-6)):
+    """
+    Evaluates h ( n ) log )
+
+    Args:
+        x: (int): write your description
+        epsilon: (float): write your description
+    """
     if x > epsilon:
         return -(x) * np.log(x)
     elif x < 0:
@@ -22,6 +29,13 @@ def h(x, epsilon=10 ** (-6)):
 
 
 def entropy(mat, nb_bins=20):
+    """
+    Computes the entropy of a histogram.
+
+    Args:
+        mat: (array): write your description
+        nb_bins: (int): write your description
+    """
     N, m = mat.shape
     ent = np.zeros(m)
     for i in range(m):
@@ -32,6 +46,13 @@ def entropy(mat, nb_bins=20):
 
 
 def variance_without_diagonal(mat, recompute_mean=False):
+    """
+    Compute variance of variance.
+
+    Args:
+        mat: (array): write your description
+        recompute_mean: (bool): write your description
+    """
     var = np.zeros(mat.shape[1])
     mu = np.zeros(mat.shape[1])
     N = mat.shape[0]
@@ -47,6 +68,15 @@ def variance_without_diagonal(mat, recompute_mean=False):
 
 
 def entropy_naive(mat, centered=False, offset=False, norm=False):
+    """
+    Calculate entropy.
+
+    Args:
+        mat: (array): write your description
+        centered: (bool): write your description
+        offset: (int): write your description
+        norm: (todo): write your description
+    """
     ent = np.zeros(mat.shape[1])
     N = mat.shape[1]
     if centered and offset:

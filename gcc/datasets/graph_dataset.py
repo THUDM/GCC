@@ -21,6 +21,12 @@ from gcc.datasets import data_util
 
 
 def worker_init_fn(worker_id):
+    """
+    Initialize the worker.
+
+    Args:
+        worker_id: (str): write your description
+    """
     worker_info = torch.utils.data.get_worker_info()
     dataset = worker_info.dataset
     dataset.graphs, _ = dgl.data.utils.load_graphs(
@@ -45,6 +51,23 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         aug="rwr",
         num_neighbors=5,
     ):
+        """
+        Initialize the embedding
+
+        Args:
+            self: (todo): write your description
+            rw_hops: (todo): write your description
+            restart_prob: (str): write your description
+            positional_embedding_size: (int): write your description
+            step_dist: (str): write your description
+            num_workers: (int): write your description
+            dgl_graphs_file: (str): write your description
+            num_samples: (int): write your description
+            num_copies: (int): write your description
+            graph_transform: (todo): write your description
+            aug: (todo): write your description
+            num_neighbors: (int): write your description
+        """
         super(LoadBalanceGraphDataset).__init__()
         self.rw_hops = rw_hops
         self.num_neighbors = num_neighbors
@@ -80,9 +103,21 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
         self.aug = aug
 
     def __len__(self):
+        """
+        The number of samples.
+
+        Args:
+            self: (todo): write your description
+        """
         return self.num_samples * num_workers
 
     def __iter__(self):
+        """
+        Iterate over the graph.
+
+        Args:
+            self: (todo): write your description
+        """
         degrees = torch.cat([g.in_degrees().double() ** 0.75 for g in self.graphs])
         prob = degrees / torch.sum(degrees)
         samples = np.random.choice(
@@ -92,6 +127,13 @@ class LoadBalanceGraphDataset(torch.utils.data.IterableDataset):
             yield self.__getitem__(idx)
 
     def __getitem__(self, idx):
+        """
+        Generate a random item.
+
+        Args:
+            self: (todo): write your description
+            idx: (list): write your description
+        """
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):
@@ -188,6 +230,17 @@ class GraphDataset(torch.utils.data.Dataset):
         positional_embedding_size=32,
         step_dist=[1.0, 0.0, 0.0],
     ):
+        """
+        Initialize the graph
+
+        Args:
+            self: (todo): write your description
+            rw_hops: (todo): write your description
+            subgraph_size: (int): write your description
+            restart_prob: (str): write your description
+            positional_embedding_size: (int): write your description
+            step_dist: (str): write your description
+        """
         super(GraphDataset).__init__()
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
@@ -216,9 +269,22 @@ class GraphDataset(torch.utils.data.Dataset):
         self.length = sum([g.number_of_nodes() for g in self.graphs])
 
     def __len__(self):
+        """
+        Returns the length of the queue.
+
+        Args:
+            self: (todo): write your description
+        """
         return self.length
 
     def _convert_idx(self, idx):
+        """
+        Convert a node idx to a graph.
+
+        Args:
+            self: (todo): write your description
+            idx: (todo): write your description
+        """
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):
@@ -230,6 +296,13 @@ class GraphDataset(torch.utils.data.Dataset):
         return graph_idx, node_idx
 
     def __getitem__(self, idx):
+        """
+        Get a random graph.
+
+        Args:
+            self: (todo): write your description
+            idx: (list): write your description
+        """
         graph_idx, node_idx = self._convert_idx(idx)
 
         step = np.random.choice(len(self.step_dist), 1, p=self.step_dist)[0]
@@ -286,6 +359,18 @@ class NodeClassificationDataset(GraphDataset):
         positional_embedding_size=32,
         step_dist=[1.0, 0.0, 0.0],
     ):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            dataset: (todo): write your description
+            rw_hops: (todo): write your description
+            subgraph_size: (int): write your description
+            restart_prob: (str): write your description
+            positional_embedding_size: (int): write your description
+            step_dist: (str): write your description
+        """
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
@@ -299,6 +384,13 @@ class NodeClassificationDataset(GraphDataset):
         self.total = self.length
 
     def _create_dgl_graph(self, data):
+        """
+        Create a dgl graph from data.
+
+        Args:
+            self: (todo): write your description
+            data: (todo): write your description
+        """
         graph = dgl.DGLGraph()
         src, dst = data.edge_index.tolist()
         num_nodes = data.edge_index.max() + 1
@@ -319,6 +411,18 @@ class GraphClassificationDataset(NodeClassificationDataset):
         positional_embedding_size=32,
         step_dist=[1.0, 0.0, 0.0],
     ):
+        """
+        Initialize the dataset.
+
+        Args:
+            self: (todo): write your description
+            dataset: (todo): write your description
+            rw_hops: (todo): write your description
+            subgraph_size: (int): write your description
+            restart_prob: (str): write your description
+            positional_embedding_size: (int): write your description
+            step_dist: (str): write your description
+        """
         self.rw_hops = rw_hops
         self.subgraph_size = subgraph_size
         self.restart_prob = restart_prob
@@ -333,6 +437,13 @@ class GraphClassificationDataset(NodeClassificationDataset):
         self.total = self.length
 
     def _convert_idx(self, idx):
+        """
+        Convert a node idxnode to an idx.
+
+        Args:
+            self: (todo): write your description
+            idx: (todo): write your description
+        """
         graph_idx = idx
         node_idx = self.graphs[idx].out_degrees().argmax().item()
         return graph_idx, node_idx
@@ -348,6 +459,18 @@ class GraphClassificationDatasetLabeled(GraphClassificationDataset):
         positional_embedding_size=32,
         step_dist=[1.0, 0.0, 0.0],
     ):
+        """
+        Initialize the classes.
+
+        Args:
+            self: (todo): write your description
+            dataset: (todo): write your description
+            rw_hops: (todo): write your description
+            subgraph_size: (int): write your description
+            restart_prob: (str): write your description
+            positional_embedding_size: (int): write your description
+            step_dist: (str): write your description
+        """
         super(GraphClassificationDatasetLabeled, self).__init__(
             dataset,
             rw_hops,
@@ -361,9 +484,23 @@ class GraphClassificationDatasetLabeled(GraphClassificationDataset):
         self.dict = [self.getitem(idx) for idx in range(len(self))]
 
     def __getitem__(self, idx):
+        """
+        Return the item with the given index.
+
+        Args:
+            self: (todo): write your description
+            idx: (list): write your description
+        """
         return self.dict[idx]
 
     def getitem(self, idx):
+        """
+        Get a random graph.
+
+        Args:
+            self: (todo): write your description
+            idx: (list): write your description
+        """
         graph_idx = idx
         node_idx = self.graphs[idx].out_degrees().argmax().item()
 
@@ -395,6 +532,19 @@ class NodeClassificationDatasetLabeled(NodeClassificationDataset):
         step_dist=[1.0, 0.0, 0.0],
         cat_prone=False,
     ):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            dataset: (todo): write your description
+            rw_hops: (todo): write your description
+            subgraph_size: (int): write your description
+            restart_prob: (str): write your description
+            positional_embedding_size: (int): write your description
+            step_dist: (str): write your description
+            cat_prone: (todo): write your description
+        """
         super(NodeClassificationDatasetLabeled, self).__init__(
             dataset,
             rw_hops,
@@ -407,6 +557,13 @@ class NodeClassificationDatasetLabeled(NodeClassificationDataset):
         self.num_classes = self.data.y.shape[1]
 
     def __getitem__(self, idx):
+        """
+        Generate a random graph.
+
+        Args:
+            self: (todo): write your description
+            idx: (list): write your description
+        """
         graph_idx = 0
         node_idx = idx
         for i in range(len(self.graphs)):

@@ -8,6 +8,17 @@ class MemoryMoCo(nn.Module):
     """Fixed-size queue with momentum encoder"""
 
     def __init__(self, inputSize, outputSize, K, T=0.07, use_softmax=False):
+        """
+        Initialize the queue.
+
+        Args:
+            self: (todo): write your description
+            inputSize: (list): write your description
+            outputSize: (int): write your description
+            K: (int): write your description
+            T: (int): write your description
+            use_softmax: (int): write your description
+        """
         super(MemoryMoCo, self).__init__()
         self.outputSize = outputSize
         self.inputSize = inputSize
@@ -24,6 +35,14 @@ class MemoryMoCo(nn.Module):
         print("using queue shape: ({},{})".format(self.queueSize, inputSize))
 
     def forward(self, q, k):
+        """
+        Perform function
+
+        Args:
+            self: (todo): write your description
+            q: (todo): write your description
+            k: (todo): write your description
+        """
         batchSize = q.shape[0]
         k = k.detach()
 

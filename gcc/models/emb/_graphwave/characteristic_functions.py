@@ -61,6 +61,13 @@ def plot_angle_chi(f, t=[], savefig=False, filefig="plots/angle_chi.png"):
 
 
 def charac_function(time_points, temp):
+    """
+    R calculate a single character.
+
+    Args:
+        time_points: (int): write your description
+        temp: (todo): write your description
+    """
     temp2 = temp.T.tolil()
     d = temp2.data
     n_timepnts = len(time_points)
@@ -80,6 +87,13 @@ def charac_function(time_points, temp):
 
 
 def charac_function_multiscale(heat, time_points):
+    """
+    Returns a list of - wise heatmap for a heatmap.
+
+    Args:
+        heat: (todo): write your description
+        time_points: (int): write your description
+    """
     final_sig = []
     for i in heat.keys():
         final_sig.append(charac_function(time_points, heat[i]))

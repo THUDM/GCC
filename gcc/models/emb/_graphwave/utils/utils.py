@@ -13,6 +13,15 @@ import numpy as np
 
 
 def save_obj(obj, name, path, compress=False):
+    """
+    Pickle toml file.
+
+    Args:
+        obj: (todo): write your description
+        name: (str): write your description
+        path: (str): write your description
+        compress: (bool): write your description
+    """
     # print path+name+ ".pkl"
     if compress is False:
         with open(path + name + ".pkl", "wb") as f:
@@ -23,6 +32,13 @@ def save_obj(obj, name, path, compress=False):
 
 
 def load_obj(name, compressed=False):
+    """
+    Load a pickle file.
+
+    Args:
+        name: (str): write your description
+        compressed: (bool): write your description
+    """
     if compressed is False:
         with open(name, "rb") as f:
             return pickle.load(f)
@@ -32,6 +48,12 @@ def load_obj(name, compressed=False):
 
 
 def atof(text):
+    """
+    Return a float atof
+
+    Args:
+        text: (str): write your description
+    """
     try:
         retval = float(text)
     except ValueError:

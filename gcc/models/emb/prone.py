@@ -9,12 +9,29 @@ from sklearn.utils.extmath import randomized_svd
 
 class ProNE(object):
     def __init__(self, dimension, step=5, mu=0.2, theta=0.5, **kwargs):
+        """
+        Initialize the gradient.
+
+        Args:
+            self: (todo): write your description
+            dimension: (int): write your description
+            step: (int): write your description
+            mu: (array): write your description
+            theta: (todo): write your description
+        """
         self.dimension = dimension
         self.step = step
         self.mu = mu
         self.theta = theta
 
     def train(self, G):
+        """
+        Train the graph.
+
+        Args:
+            self: (todo): write your description
+            G: (todo): write your description
+        """
         self.num_node = G.number_of_nodes()
 
         self.matrix0 = sp.csr_matrix(nx.adjacency_matrix(G))
@@ -30,6 +47,13 @@ class ProNE(object):
         return self.embeddings
 
     def _get_embedding_rand(self, matrix):
+        """
+        Get an embedding.
+
+        Args:
+            self: (todo): write your description
+            matrix: (todo): write your description
+        """
         # Sparse randomized tSVD for fast embedding
         l = matrix.shape[0]
         smat = sp.csc_matrix(matrix)  # convert to sparse CSC format
@@ -41,6 +65,14 @@ class ProNE(object):
         return U
 
     def _get_embedding_dense(self, matrix, dimension):
+        """
+        Compute the dense dense matrix.
+
+        Args:
+            self: (todo): write your description
+            matrix: (todo): write your description
+            dimension: (int): write your description
+        """
         # get dense embedding via SVD
         U, s, Vh = linalg.svd(
             matrix, full_matrices=False, check_finite=False, overwrite_a=True
@@ -54,6 +86,14 @@ class ProNE(object):
         return U
 
     def _pre_factorization(self, tran, mask):
+        """
+        Preprocessing function.
+
+        Args:
+            self: (todo): write your description
+            tran: (todo): write your description
+            mask: (array): write your description
+        """
         # Network Embedding as Sparse Matrix Factorization
         l1 = 0.75
         C1 = preprocessing.normalize(tran, "l1")
@@ -76,6 +116,17 @@ class ProNE(object):
         return features_matrix
 
     def _chebyshev_gaussian(self, A, a, order=10, mu=0.5, s=0.5):
+        """
+        Chebyshev_d gaussian.
+
+        Args:
+            self: (todo): write your description
+            A: (array): write your description
+            a: (float): write your description
+            order: (int): write your description
+            mu: (float): write your description
+            s: (float): write your description
+        """
         # NE Enhancement via Spectral Propagation
         if order == 1:
             return a

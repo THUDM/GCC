@@ -16,6 +16,17 @@ class UnsupervisedGAT(nn.Module):
     def __init__(
         self, node_input_dim, node_hidden_dim, edge_input_dim, num_layers, num_heads
     ):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            node_input_dim: (int): write your description
+            node_hidden_dim: (int): write your description
+            edge_input_dim: (int): write your description
+            num_layers: (int): write your description
+            num_heads: (int): write your description
+        """
         super(UnsupervisedGAT, self).__init__()
         assert node_hidden_dim % num_heads == 0
         self.layers = nn.ModuleList(
@@ -36,6 +47,15 @@ class UnsupervisedGAT(nn.Module):
         )
 
     def forward(self, g, n_feat, e_feat):
+        """
+        Forward computation.
+
+        Args:
+            self: (todo): write your description
+            g: (todo): write your description
+            n_feat: (int): write your description
+            e_feat: (todo): write your description
+        """
         for i, layer in enumerate(self.layers):
             n_feat = layer(g, n_feat)
         return n_feat

@@ -96,6 +96,12 @@ def download(url, path, fname, redownload=False):
 
 
 def _get_confirm_token(response):
+    """
+    Get a confirmation token.
+
+    Args:
+        response: (todo): write your description
+    """
     for key, value in response.cookies.items():
         if key.startswith("download_warning"):
             return value

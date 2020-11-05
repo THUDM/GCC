@@ -27,6 +27,18 @@ class NodeClassification(object):
     """Node classification task."""
 
     def __init__(self, dataset, model, hidden_size, num_shuffle, seed, **model_args):
+        """
+        Initialize the model.
+
+        Args:
+            self: (todo): write your description
+            dataset: (todo): write your description
+            model: (todo): write your description
+            hidden_size: (int): write your description
+            num_shuffle: (int): write your description
+            seed: (int): write your description
+            model_args: (dict): write your description
+        """
         self.data = create_node_classification_dataset(dataset).data
         self.label_matrix = self.data.y
         self.num_nodes, self.num_classes = self.data.y.shape
@@ -37,6 +49,12 @@ class NodeClassification(object):
         self.seed = seed
 
     def train(self):
+        """
+        Train the graph.
+
+        Args:
+            self: (todo): write your description
+        """
         G = nx.Graph()
         G.add_edges_from(self.data.edge_index.t().tolist())
         embeddings = self.model.train(G)
@@ -51,6 +69,15 @@ class NodeClassification(object):
         return self._evaluate(features_matrix, label_matrix, self.num_shuffle)
 
     def _evaluate(self, features_matrix, label_matrix, num_shuffle):
+        """
+        Evaluate the model.
+
+        Args:
+            self: (todo): write your description
+            features_matrix: (array): write your description
+            label_matrix: (array): write your description
+            num_shuffle: (int): write your description
+        """
         # shuffle, to create train/test groups
         skf = StratifiedKFold(n_splits=10, shuffle=True, random_state=self.seed)
         idx_list = []
@@ -89,6 +116,14 @@ class NodeClassification(object):
 
 class TopKRanker(OneVsRestClassifier):
     def predict(self, X, top_k_list):
+        """
+        Predict class labels.
+
+        Args:
+            self: (array): write your description
+            X: (array): write your description
+            top_k_list: (list): write your description
+        """
         assert X.shape[0] == len(top_k_list)
         probs = np.asarray(super(TopKRanker, self).predict_proba(X))
         all_labels = sp.lil_matrix(probs.shape)

@@ -18,11 +18,29 @@ from gcc.tasks import build_model
 
 class SimilaritySearch(object):
     def __init__(self, dataset_1, dataset_2, model, hidden_size, **model_args):
+        """
+        Initialize the model.
+
+        Args:
+            self: (todo): write your description
+            dataset_1: (todo): write your description
+            dataset_2: (todo): write your description
+            model: (todo): write your description
+            hidden_size: (int): write your description
+            model_args: (dict): write your description
+        """
         self.data = SSDataset("data/panther", dataset_1, dataset_2).data
         self.model = build_model(model, hidden_size, **model_args)
         self.hidden_size = hidden_size
 
     def _train_wrap(self, data):
+        """
+        Builds a feature graph from the given data.
+
+        Args:
+            self: (todo): write your description
+            data: (todo): write your description
+        """
         G = nx.MultiGraph()
         G.add_edges_from(data.edge_index.t().tolist())
         embeddings = self.model.train(G)
@@ -34,11 +52,27 @@ class SimilaritySearch(object):
         return features_matrix
 
     def train(self):
+        """
+        Train the model.
+
+        Args:
+            self: (todo): write your description
+        """
         emb_1 = self._train_wrap(self.data[0])
         emb_2 = self._train_wrap(self.data[1])
         return self._evaluate(emb_1, emb_2, self.data[0].y, self.data[1].y)
 
     def _evaluate(self, emb_1, emb_2, dict_1, dict_2):
+        """
+        Evaluate the probability of two sets.
+
+        Args:
+            self: (todo): write your description
+            emb_1: (array): write your description
+            emb_2: (array): write your description
+            dict_1: (dict): write your description
+            dict_2: (dict): write your description
+        """
         shared_keys = set(dict_1.keys()) & set(dict_2.keys())
         shared_keys = list(
             filter(

@@ -38,6 +38,11 @@ from gcc.utils.misc import AverageMeter, adjust_learning_rate, warmup_linear
 
 
 def parse_option():
+    """
+    Parse command line arguments.
+
+    Args:
+    """
 
     # fmt: off
     parser = argparse.ArgumentParser("argument for training")
@@ -131,6 +136,12 @@ def parse_option():
 
 
 def option_update(opt):
+    """
+    Updates an option in the model.
+
+    Args:
+        opt: (todo): write your description
+    """
     opt.model_name = "{}_moco_{}_{}_{}_layer_{}_lr_{}_decay_{}_bsz_{}_hid_{}_samples_{}_nce_t_{}_nce_k_{}_rw_hops_{}_restart_prob_{}_aug_{}_ft_{}_deg_{}_pos_{}_momentum_{}".format(
         opt.exp,
         opt.moco,
@@ -298,6 +309,18 @@ def train_finetune(
 
 
 def test_finetune(epoch, valid_loader, model, output_layer, criterion, sw, opt):
+    """
+    Perform a epoch.
+
+    Args:
+        epoch: (int): write your description
+        valid_loader: (str): write your description
+        model: (str): write your description
+        output_layer: (todo): write your description
+        criterion: (todo): write your description
+        sw: (todo): write your description
+        opt: (todo): write your description
+    """
     n_batch = len(valid_loader)
     model.eval()
     output_layer.eval()
@@ -358,6 +381,12 @@ def train_moco(
     model_ema.eval()
 
     def set_bn_train(m):
+        """
+        Sets the classname of the classname.
+
+        Args:
+            m: (todo): write your description
+        """
         classname = m.__class__.__name__
         if classname.find("BatchNorm") != -1:
             m.train()
@@ -480,6 +509,11 @@ def train_moco(
 
 # def main(args, trial):
 def main(args):
+    """
+    Main function.
+
+    Args:
+    """
     dgl.random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -650,6 +684,12 @@ def main(args):
         )
 
         def clear_bn(m):
+            """
+            Clears the machine.
+
+            Args:
+                m: (todo): write your description
+            """
             classname = m.__class__.__name__
             if classname.find("BatchNorm") != -1:
                 m.reset_running_stats()
@@ -801,6 +841,11 @@ if __name__ == "__main__":
         gpus = args.gpu
 
         def variant_args_generator():
+            """
+            Generate a generator that generator arguments.
+
+            Args:
+            """
             for fold_idx in range(10):
                 args.fold_idx = fold_idx
                 args.num_workers = 0
