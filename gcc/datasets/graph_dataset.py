@@ -327,7 +327,8 @@ class GraphClassificationDataset(NodeClassificationDataset):
         self.entire_graph = True
         assert positional_embedding_size > 1
 
-        self.graphs = data_util.create_graph_classification_dataset(dataset).graph_lists
+        self.dataset = data_util.create_graph_classification_dataset(dataset)
+        self.graphs = self.dataset.graph_lists
 
         self.length = len(self.graphs)
         self.total = self.length
