@@ -183,6 +183,14 @@ In addition to GPU, our pretraining stage requires a lot of computation resource
 If this still fails, please upgrade your machine :). In the meanwhile, you can still download our pretrained model and evaluate it on downstream tasks.
 </details>
 
+<details>
+<summary>
+Having difficulty installing RDKit.
+</summary>
+<br/>
+See the P.S. section in [this](https://github.com/THUDM/GCC/issues/12#issue-752080014) post.
+</details>
+
 ## Citing GCC
 
 If you use GCC in your research or wish to refer to the baseline results, please use the following BibTeX.
