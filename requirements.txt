@@ -1,5 +1,5 @@
 scikit-learn==0.20.3
-scipy==1.4.1
+scipy==1.10.0
 coverage==4.5.4
 coveralls==1.9.2
 black==19.3b0
